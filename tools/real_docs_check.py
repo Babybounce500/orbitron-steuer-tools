@@ -40,7 +40,9 @@ TEST_JS = """
       try {
         const buf = await (await fetch(base + '/pdf/' + i)).arrayBuffer();
         const t0 = performance.now();
-        const zeilen = await pdfZuZeilen(new File([buf], 'x.pdf'));
+        const typ = /pdf$/i.test(liste[i]) ? 'application/pdf' : 'image/png';
+        const gelesen = await L.liesDateien([new File([buf], liste[i], { type: typ })], K.gruppiereZeilen);
+        const zeilen = gelesen.text.split('\\n').filter(Boolean); res.ocr = gelesen.ocr;
         const roh = zeilen.join('\\n');
         const rows = K.parseBuchungen(zeilen);
         const sc = K.summencheck(rows, K.findeSalden(zeilen));
@@ -104,16 +106,17 @@ def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{port}"
     html = (ROOT / "dist" / "Orbitron-Extractor.html").read_text(encoding="utf-8")
-    html = html.replace("default-src 'none';", f"default-src 'none'; connect-src {base};", 1)
+    html = html.replace("connect-src ", f"connect-src {base} ", 1)
     eigene = json.dumps([x for x in a.eigene.split("|") if x])
     html = html.replace("</body>", "<script>\n" + TEST_JS % {"base": base, "eigene": eigene} + "\n</script></body>")
     with TempDir() as t:
         p = Path(t) / "t.html"
         p.write_text(html, encoding="utf-8")
+        shutil.copyfile(ROOT / "dist" / "ocr-paket.js", Path(t) / "ocr-paket.js")
         proc = subprocess.Popen([browser, "--headless", "--disable-gpu", f"--user-data-dir={t}/profil", p.as_uri()],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            ende = time.time() + 60 + 40 * len(dateien)
+            ende = time.time() + 60 + 150 * len(dateien)
             while not fertig.is_set() and time.time() < ende:
                 time.sleep(0.5)
         finally:
@@ -131,7 +134,7 @@ def main():
     }
     bericht = []
     for r in sorted(ergebnisse, key=lambda x: x["i"]):
-        z = {k: r.get(k) for k in ["name", "fehler", "zeilen", "zeichen", "buchungen", "quote", "summencheck", "abw", "gelernt", "platzhalter", "rest", "moegliche", "ms"]}
+        z = {k: r.get(k) for k in ["name", "fehler", "zeilen", "zeichen", "buchungen", "quote", "summencheck", "abw", "gelernt", "platzhalter", "rest", "moegliche", "ms", "ocr"]}
         if "anon" in r:
             low = r["anon"].lower()
             z["leck_begriffe"] = {b: low.count(b.lower()) for b in begriffe if b.lower() in low}

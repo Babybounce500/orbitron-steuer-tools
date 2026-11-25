@@ -28,7 +28,7 @@ def baue_web():
     dist = ROOT / "dist"
     if dist.exists():
         (ROOT / "web" / "dist").mkdir(exist_ok=True)
-        for f in dist.glob("*.html"):
+        for f in [*dist.glob("*.html"), *dist.glob("*.js")]:
             shutil.copyfile(f, ROOT / "web" / "dist" / f.name)
 
 

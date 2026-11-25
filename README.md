@@ -54,3 +54,10 @@ Python/Node für die Entwicklung liegen portabel in `runtime/` (nur lokal, nicht
 - Netz: nur `https://glow-up-gemini.replit.app` (Content-Security-Policy). Konstanten `MODELL` und `PROXY` in `agent-core.js`, die Build-Adresse in `tools/build_dist.py`.
 - **Vor dem Einsatz mit echten Daten:** Proxy absichern (derzeit ohne Anmeldung nutzbar), bezahlten Gemini-Schlüssel sicherstellen, Auftragsverarbeitung mit Google und Replit klären.
 - Tests: `tests/agent.test.mjs` (nachgestelltes Modell) und Abschnitt „Auswerten“ in `tests/e2e_browser.py`.
+
+## Texterkennung (OCR)
+- Anonymisieren und Auswerten lesen PDF (auch gescannte Seiten), PNG, JPG, WEBP und per Strg+V eingefügte Screenshots.
+- Die Erkennung läuft lokal im Browser (Tesseract.js, deutsches Modell, `web/vendor/ocr-paket.js`, erzeugt mit `tools/make_ocr_paket.py`). Bilder werden nicht gesendet; an die KI geht nur freigegebener, anonymisierter Text.
+- Die Datei `ocr-paket.js` (rund 6 MB) muss neben den HTML-Seiten liegen; sie lädt erst, wenn ein Bild oder Scan erkannt werden muss.
+- Erkennungsfehler sind möglich. Bei Kontoauszügen deckt der Summencheck viele auf; Namen mit Lesefehlern kann die Anonymisierung übersehen. Höchstens 30 Bildseiten je PDF.
+- Tests: `tests/e2e_browser.py` (Screenshot hell/dunkel, Scan-PDF), Testbilder aus `tools/make_testpdf.py`.

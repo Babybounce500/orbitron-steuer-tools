@@ -1,6 +1,7 @@
 import * as K from "./extractor-core.js";
 import * as G from "./geldmodus.js";
 import * as A from "./agent-core.js";
+import * as L from "./leser.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const pill = (t, k) => el("span", "pill " + k, t);
@@ -52,13 +53,51 @@ $("beispiel").onclick = () => setzeQuelle({ typ: "buchungen", herkunft: "Beispie
   ["2025-02-20", "Finanzamt Teststadt Umsatzsteuer", -28500], ["2025-02-28", "Eingang FIRMA_02 Rechnung 2025-002", 178500], ["2025-02-28", "Qonto Abonnement", -900], ["2025-02-28", "Qonto Abonnement", -900],
 ].map(([datum, text, c]) => ({ datum, text, cent: BigInt(c) })) });
 
+// ---------- Dateien selbst lesen und anonymisieren (alles lokal) ----------
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+function leseStatus(t, fehler) { const s = $("leseStat"); s.textContent = t || ""; s.className = "status" + (fehler ? " err" : ""); }
+let gelesen = null; // anonymisiert neu erstellbar, wenn sich die eigenen Namen ändern; Originaltext bleibt nur im Arbeitsspeicher
+function anonymisiereGelesen() {
+  const eigen = $("namen").value.split(",").map((x) => x.trim()).filter(Boolean);
+  const zeilen = gelesen.text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const original = K.parseBuchungen(zeilen), sc = K.summencheck(original, K.findeSalden(zeilen));
+  const an = K.pseudonymisiere(gelesen.text, { eigeneNamen: eigen });
+  const anRows = K.parseBuchungen(an.text.split("\n").map((x) => x.trim()).filter(Boolean));
+  const rows = anRows.map((r) => ({ datum: r.datum, text: r.text, cent: r.cent }));
+  const verloren = Math.max(0, original.length - anRows.length);
+  const hinweis = [L.ocrHinweis(gelesen.ocr), `${Object.keys(an.tabelle).length} Platzhalter gesetzt.`, verloren ? `Achtung: ${verloren} Buchung(en) fehlen in der anonymisierten Liste.` : ""].filter(Boolean).join(" ");
+  setzeQuelle({ typ: rows.length >= 2 ? "buchungen" : "dokument", rows, text: an.text, tabelle: an.tabelle, herkunft: "Lokal gelesen und anonymisiert", meta: { summencheck: rows.length ? sc.status : "unbekannt", hinweis } });
+}
+async function ladeDokumente(liste) {
+  const files = [...liste].filter((f) => L.istPdf(f) || L.istBild(f));
+  if (!files.length) return leseStatus("Bitte eine PDF- oder Bilddatei wählen (PNG, JPG, WEBP).", true);
+  leseStatus("Lese Datei(en) …");
+  $("freigabe").checked = false; $("start").disabled = true; // alte Freigabe gilt nicht für die neue Datei
+  try {
+    const r = await L.liesDateien(files, K.gruppiereZeilen, leseStatus);
+    if (!r.text.trim()) return leseStatus("Kein Text gefunden. Ist das Bild scharf und gut beleuchtet?", true);
+    gelesen = r; anonymisiereGelesen();
+    leseStatus("Gelesen und anonymisiert. Prüfe unten, was gesendet würde.");
+  } catch (e) { leseStatus("Datei nicht lesbar: " + (e && e.message ? e.message : e), true); }
+  finally { $("doku").value = ""; }
+}
+const drop = $("drop");
+drop.addEventListener("click", () => $("doku").click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("doku").click(); } });
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => ladeDokumente(e.dataTransfer.files));
+$("doku").addEventListener("change", (e) => ladeDokumente(e.target.files));
+document.addEventListener("paste", (e) => { const b = [...((e.clipboardData && e.clipboardData.files) || [])].filter(L.istBild); if (b.length) { e.preventDefault(); ladeDokumente(b); } });
+$("namen").addEventListener("change", () => { if (gelesen && quelle && quelle.herkunft.startsWith("Lokal")) anonymisiereGelesen(); });
+
 // Übergabe aus dem Anonymisierer
 try {
   const roh = sessionStorage.getItem("orbitron-uebergabe");
   if (roh) {
     const u = JSON.parse(roh);
     const rows = (u.rows || []).map((r) => ({ datum: r.datum, text: r.text, cent: BigInt(r.cent) }));
-    const hinweis = u.verloren ? `Achtung: ${u.verloren} Buchung(en) fehlen in der anonymisierten Liste.` : "";
+    const hinweis = [u.hinweis, u.verloren ? `Achtung: ${u.verloren} Buchung(en) fehlen in der anonymisierten Liste.` : ""].filter(Boolean).join(" ");
     setzeQuelle({ typ: rows.length >= 2 ? "buchungen" : "dokument", rows, text: u.text || "", tabelle: u.tabelle || null, herkunft: "Aus dem Anonymisierer übernommen", meta: { summencheck: u.summencheck || "unbekannt", hinweis } });
   }
 } catch (e) { /* Speicher nicht verfügbar: Datei oder Text benutzen */ }

@@ -2,12 +2,16 @@
 Aufruf: python tools/build_dist.py"""
 import base64
 import re
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB, DIST = ROOT / "web", ROOT / "dist"
 CSP = ("default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; "
        "worker-src blob:; img-src data: blob:; font-src data:")
+# Seiten mit Texterkennung: ocr-paket.js aus demselben Ordner, WebAssembly, nur data:/blob: als Verbindungen (kein Netz)
+CSP_OCR = ("default-src 'none'; script-src 'self' file: 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'unsafe-inline'; "
+           "worker-src blob:; img-src data: blob:; font-src data:; connect-src data: blob:")
 LINKS = {"start": "index.html", "extractor": "Orbitron-Extractor.html", "rechner": "Orbitron-Rechner.html", "agent": "Orbitron-Agent.html"}
 PROXY = "https://glow-up-gemini.replit.app"  # einzige Adresse, mit der die Agent-Seite sprechen darf
 
@@ -44,18 +48,31 @@ def seite(name, ersetzungen=None):
     return h
 
 
-def extractor():
-    h = seite("extractor.html")
+def pdf_und_ocr(h):
+    """pdf.js samt Worker einbetten; das große OCR-Paket bleibt eine eigene Datei daneben und lädt nur bei Bedarf."""
     pdfjs = lies(WEB / "vendor" / "pdf.min.js")
     worker = base64.b64encode((WEB / "vendor" / "pdf.worker.min.js").read_bytes()).decode()
-    ui = ohne_import(lies(WEB / "extractor-ui.js"))
-    a = 'if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";'
-    assert a in ui
-    ui = ui.replace(a, 'if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(new Blob([Uint8Array.from(atob(PDF_WORKER_B64), (c) => c.charCodeAt(0))], { type: "text/javascript" })));')
-    h = h.replace('<script src="vendor/pdf.min.js"></script>', skript(pdfjs))
-    h = h.replace('<script type="module" src="extractor-ui.js"></script>',
-                  skript(f'const PDF_WORKER_B64 = "{worker}";') + "\n" + skript(iife(lies(WEB / "extractor-core.js"), "K")) + "\n" + skript(ui))
-    return h
+    return h.replace('<script src="vendor/pdf.min.js"></script>', skript('window.ORBITRON_OCR_URL = "ocr-paket.js";') + "\n" + skript(pdfjs) + "\n" + skript(f'const PDF_WORKER_B64 = "{worker}";'))
+
+
+WORKER_ZEILE = 'pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";'
+WORKER_NEU = 'pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(new Blob([Uint8Array.from(atob(PDF_WORKER_B64), (c) => c.charCodeAt(0))], { type: "text/javascript" })));'
+
+
+def module(*paare):
+    return "\n".join(skript(iife(lies(WEB / q), n)) for q, n in paare)
+
+
+def mit_ui(name):
+    ui = ohne_import(lies(WEB / name))
+    assert WORKER_ZEILE in ui, name
+    return ui.replace(WORKER_ZEILE, WORKER_NEU)
+
+
+def extractor():
+    h = pdf_und_ocr(seite("extractor.html").replace(CSP, CSP_OCR))
+    return h.replace('<script type="module" src="extractor-ui.js"></script>',
+                     module(("extractor-core.js", "K"), ("leser.js", "L")) + "\n" + skript(mit_ui("extractor-ui.js")))
 
 
 def rechner():
@@ -67,10 +84,9 @@ def rechner():
 
 
 def agent():
-    h = seite("agent.html")
-    h = h.replace(CSP, f"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src {PROXY}")
-    module = "\n".join(skript(iife(lies(WEB / q), n)) for q, n in (("extractor-core.js", "K"), ("geldmodus.js", "G"), ("agent-core.js", "A")))
-    return h.replace('<script type="module" src="agent-ui.js"></script>', module + "\n" + skript(ohne_import(lies(WEB / "agent-ui.js"))))
+    h = pdf_und_ocr(seite("agent.html").replace(CSP, CSP_OCR.replace("connect-src ", f"connect-src {PROXY} ")))
+    return h.replace('<script type="module" src="agent-ui.js"></script>',
+                     module(("extractor-core.js", "K"), ("geldmodus.js", "G"), ("agent-core.js", "A"), ("leser.js", "L")) + "\n" + skript(mit_ui("agent-ui.js")))
 
 
 def start():
@@ -90,6 +106,7 @@ def main():
     for name, f in dateien.items():
         (DIST / name).write_text(f(), encoding="utf-8")
         print(name, (DIST / name).stat().st_size // 1024, "KB")
+    shutil.copyfile(WEB / "vendor" / "ocr-paket.js", DIST / "ocr-paket.js")
     # alte Adressen weiter nutzbar
     (DIST / "Orbitron-Geldrechner.html").write_text(weiterleitung("Orbitron-Rechner.html#geld"), encoding="utf-8")
     (DIST / "Orbitron-Taschenrechner.html").write_text(weiterleitung("Orbitron-Rechner.html#wiss"), encoding="utf-8")

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; img-src 'self' data: blob:; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; img-src 'self' data: blob:; connect-src data: blob:">
 <title>Orbitron Anonymisieren</title>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -20,11 +20,11 @@
   </ol>
 
   <section class="card" id="eingabe">
-    <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="PDF auswählen oder hierher ziehen">
+    <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="PDF oder Bild auswählen oder hierher ziehen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-      <strong>PDF hierher ziehen oder auswählen</strong>
-      <small>Kontoauszüge, Verträge, Rechnungen mit Textebene. Mehrere Dateien sind möglich. Gescannte Seiten ohne Text kann das Programm nicht lesen.</small>
-      <input id="pdf" type="file" accept="application/pdf" multiple hidden>
+      <strong>PDF oder Bild hierher ziehen oder auswählen</strong>
+      <small>Kontoauszüge, Verträge, Rechnungen, Scans, Fotos und Screenshots (auch mit Strg+V einfügen). Bilder und Scans liest eine Texterkennung auf diesem Rechner. Mehrere Dateien sind möglich.</small>
+      <input id="pdf" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/bmp" multiple hidden>
     </div>
     <p class="status" id="stat" role="status" aria-live="polite"></p>
 
@@ -51,6 +51,7 @@
   </section>
 
   <div id="ergebnis" hidden>
+    <div class="card" id="ocrWarn" role="status" style="border-color:var(--warn)" hidden></div>
     <section class="grid3" id="kpi" aria-label="Zusammenfassung"></section>
 
     <section class="card">

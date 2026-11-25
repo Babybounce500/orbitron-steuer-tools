@@ -218,3 +218,12 @@ test("Straße ersetzt nur Name und Hausnummer, das Leerzeichen danach bleibt", (
   assert.match(r.text, /ADRESSE_01 -950,00$/, r.text);
   assert.equal(parseBuchungen(r.text.split("\n")).length, 1);
 });
+
+test("Registerschreibweise 'Nachname, Vorname' wird erkannt", () => {
+  const r = pseudonymisiere("Geschäftsführer:\nBeispiel, Paul, Teststadt, *04.05.1980\neinzelvertretungsberechtigt");
+  assert.ok(!/Beispiel|Paul|04\.05\.1980/.test(r.text), r.text);
+});
+test("Webadresse mit Pfad wird maskiert, auch bei bekannter Bank; reine Domain bleibt", () => {
+  const r = pseudonymisiere("app.qonto.com/organizations/beispiel-handel-1234/transactions und qonto.com", { autoNamen: false });
+  assert.ok(!r.text.includes("beispiel-handel"), r.text); assert.ok(r.text.includes("und qonto.com"), r.text);
+});

@@ -1,4 +1,5 @@
 import * as K from "./extractor-core.js";
+import * as L from "./leser.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -6,20 +7,12 @@ let namen = [];          // vom Anwender ergänzte Namen
 let ergebnis = null;     // letztes Auswertungsergebnis
 let geladeneTabelle = null; // aus Datei geladene Zuordnung (zum Zurückübersetzen)
 let timer = null;
+let ocrInfo = null;     // Angaben zur Texterkennung (null = Text kam direkt aus dem PDF)
 
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
 
 async function pdfZuZeilen(file) {
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf, disableFontFace: true }).promise;
-  const alle = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const tc = await page.getTextContent();
-    const items = tc.items.map((i) => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width, h: i.height }));
-    alle.push(...K.gruppiereZeilen(items));
-  }
-  return alle;
+  return (await L.pdfLesen(file, K.gruppiereZeilen, status)).zeilen;
 }
 
 function status(text, fehler) { const s = $("stat"); s.textContent = text || ""; s.className = "status" + (fehler ? " err" : ""); }
@@ -40,21 +33,27 @@ drop.addEventListener("drop", (e) => ladeDateien(e.dataTransfer.files));
 $("pdf").addEventListener("change", (e) => ladeDateien(e.target.files));
 
 async function ladeDateien(fileList) {
-  const files = [...fileList].filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
-  if (!files.length) return status("Das ist keine PDF-Datei.", true);
-  if (!window.pdfjsLib) return status("pdf.js fehlt (web/vendor/pdf.min.js).", true);
-  if (files.some((f) => f.size > 20 * 1024 * 1024)) return status("Eine Datei ist größer als 20 MB.", true);
+  const files = [...fileList].filter((f) => L.istPdf(f) || L.istBild(f));
+  if (!files.length) return status("Bitte eine PDF- oder Bilddatei wählen (PNG, JPG, WEBP).", true);
   status("Lese " + files.length + " Datei(en) …");
+  $("go").disabled = true;
+  $("frei").checked = false; aktualisiereFreigabe(); // alte Freigabe gilt nicht für die neue Datei
   try {
-    const teile = [];
-    for (const f of files) teile.push((await pdfZuZeilen(f)).join("\n"));
-    const text = teile.join("\n");
-    if (!text.trim()) return status("Keine Textebene gefunden: wahrscheinlich ein Scan oder Foto. Dieses Programm liest nur PDFs mit Text (OCR nötig).", true);
-    $("roh").value = text;
+    const r = await L.liesDateien(files, K.gruppiereZeilen, status);
+    if (!r.text.trim()) return status("Kein Text gefunden. Ist das Bild scharf und gut beleuchtet?", true);
+    ocrInfo = r.ocr;
+    $("roh").value = r.text;
     status(files.map((f) => f.name).join(", ") + " gelesen. Dateinamen werden nicht weitergegeben.");
     auswerten();
-  } catch (err) { status("PDF nicht lesbar: " + err.message, true); }
+  } catch (err) { status("Datei nicht lesbar: " + (err && err.message ? err.message : err), true); }
+  finally { $("go").disabled = false; $("pdf").value = ""; }
 }
+// Screenshot aus der Zwischenablage (Strg+V)
+document.addEventListener("paste", (e) => {
+  const bilder = [...((e.clipboardData && e.clipboardData.files) || [])].filter(L.istBild);
+  if (bilder.length) { e.preventDefault(); ladeDateien(bilder); }
+});
+$("roh").addEventListener("input", () => { ocrInfo = null; });
 
 // ---------- Namen als Chips ----------
 function zeichneChips() {
@@ -103,11 +102,13 @@ function auswerten() {
   const q = K.qualitaet(zeilen, rows);
   const an = K.pseudonymisiere(roh, { eigeneNamen: namen, referenzenMaskieren: $("refs").checked });
   const rest = K.restrisiko(an.text);
+  if (ocrInfo && rest.stufe === "niedrig") rest.stufe = "mittel"; // erkannter Text kann Lesefehler enthalten
   const anRows = K.parseBuchungen(an.text.split(String.fromCharCode(10)).map((z) => z.trim()).filter(Boolean));
   const vorher = ergebnis;
   ergebnis = { rows, anRows, salden, sc, an, rest, q };
   zeigeNurReid(false);
   $("ergebnis").hidden = false;
+  $("ocrWarn").hidden = !ocrInfo; $("ocrWarn").textContent = L.ocrHinweis(ocrInfo);
   zeichneKpi(); zeichneBuchungen(); zeichneNamenTab();
   zeigeText($("anon"), an.text);
   $("frei").checked = false; aktualisiereFreigabe();
@@ -222,7 +223,7 @@ $("e-agent").onclick = () => {
     // bleibt in diesem Browser-Tab; gesendet wird erst auf der nächsten Seite nach erneuter Freigabe
     sessionStorage.setItem("orbitron-uebergabe", JSON.stringify({
       text: e.an.text, rows: e.anRows.map((r) => ({ datum: r.datum, text: r.text, cent: String(r.cent) })),
-      summencheck: e.sc.status, verloren: Math.max(0, e.rows.length - e.anRows.length), tabelle: e.an.tabelle,
+      summencheck: e.sc.status, hinweis: L.ocrHinweis(ocrInfo), verloren: Math.max(0, e.rows.length - e.anRows.length), tabelle: e.an.tabelle,
     }));
     location.href = (window.ORBITRON_LINKS || { agent: "agent.html" }).agent;
   } catch (err) { $("freiMsg").textContent = "Übergabe nicht möglich. Speichere die CSV oder den Text und lade ihn unter „Auswerten“."; }

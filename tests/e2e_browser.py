@@ -121,6 +121,47 @@ window.ORBITRON_TRANSPORT = async (body) => {
 """
 
 
+OCR_TEST = """
+var out = { fehlerListe: [] };
+window.addEventListener('error', (e) => out.fehlerListe.push(String(e.message)));
+document.addEventListener('securitypolicyviolation', (e) => out.fehlerListe.push('CSP ' + e.violatedDirective + ' ' + e.blockedURI));
+const $ = (i) => document.getElementById(i);
+const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+const datei = (b64, name, typ) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], name, { type: typ });
+(async () => {
+  try {
+    out.faelle = [];
+    for (const [b64, name, typ, weg] of %s) {
+      const dt = new DataTransfer(); dt.items.add(datei(b64, name, typ));
+      $('roh').value = ''; $('ergebnis').hidden = true; $('stat').textContent = '';
+      const t0 = performance.now();
+      if (weg === 'einfuegen') document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+      else { $('pdf').files = dt.files; $('pdf').dispatchEvent(new Event('change')); }
+      for (let i = 0; i < 900 && $('ergebnis').hidden && !$('stat').classList.contains('err'); i++) await warte(100);
+      out.faelle.push({ name, sek: Math.round((performance.now() - t0) / 100) / 10, status: $('stat').textContent, kpi: $('kpi').textContent, anon: $('anon').textContent, roh: $('roh').value, warnung: $('ocrWarn').hidden ? '' : $('ocrWarn').textContent });
+    }
+  } catch (e) { out.fehler = String(e && e.stack || e); }
+  const p = document.createElement('pre'); p.id = 'e2e'; p.textContent = JSON.stringify(out); document.body.appendChild(p);
+})();
+"""
+AGENT_OCR_TEST = """
+var out = { gesendet: 0 };
+const $ = (i) => document.getElementById(i);
+const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+window.ORBITRON_TRANSPORT = async () => { out.gesendet++; return { status: 500, json: {} }; };
+(async () => {
+  try {
+    const dt = new DataTransfer(); dt.items.add(new File([Uint8Array.from(atob('%s'), (c) => c.charCodeAt(0))], 'a.png', { type: 'image/png' }));
+    $('namen').value = 'Max Mustermann, Muster Handels GmbH';
+    $('doku').files = dt.files; $('doku').dispatchEvent(new Event('change'));
+    for (let i = 0; i < 900 && $('pruefen').hidden && !$('leseStat').classList.contains('err'); i++) await warte(100);
+    out.status = $('leseStat').textContent; out.quelle = $('quelle').textContent; out.vorschau = $('vorschau').textContent; out.sperre = $('sperre').textContent; out.start = $('start').disabled;
+  } catch (e) { out.fehler = String(e && e.stack || e); }
+  const p = document.createElement('pre'); p.id = 'e2e'; p.textContent = JSON.stringify(out); document.body.appendChild(p);
+})();
+"""
+
+
 def lauf(browser, datei, test_js, warte=60):
     """Lädt eine Kopie der Einzeldatei per file:// im Browser, führt test_js aus und holt das Ergebnis (#e2e)
     über einen lokalen Mini-Server ab. Einzige Änderung an der Kopie: connect-src für diesen Server."""
@@ -149,13 +190,19 @@ def lauf(browser, datei, test_js, warte=60):
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     html = datei.read_text(encoding="utf-8")
-    html = html.replace("default-src 'none';", f"default-src 'none'; connect-src http://127.0.0.1:{port};", 1)
+    # Seiten mit eigenem connect-src (OCR, Agent) bekommen den Testserver dort ergänzt, sonst gilt nur die erste Angabe
+    if "connect-src " in html.split("</head>")[0]:
+        html = html.replace("connect-src ", f"connect-src http://127.0.0.1:{port} ", 1)
+    else:
+        html = html.replace("default-src 'none';", f"default-src 'none'; connect-src http://127.0.0.1:{port};", 1)
     sender = ("setInterval(()=>{const p=document.getElementById('e2e');if(p&&!window.__s){window.__s=1;"
               f"fetch('http://127.0.0.1:{port}/',{{method:'POST',body:p.textContent}});}}}},200);")
     html = html.replace("</body>", "<script>\n{\n" + test_js + "\n}\n" + sender + "\n</script></body>")
     with TempDir() as t:
         p = Path(t) / "t.html"
         p.write_text(html, encoding="utf-8")
+        if (DIST / "ocr-paket.js").exists():
+            shutil.copyfile(DIST / "ocr-paket.js", Path(t) / "ocr-paket.js")
         proc = subprocess.Popen([browser, "--headless", "--disable-gpu", f"--user-data-dir={t}/profil", "--enable-logging=stderr", "--v=0", p.as_uri()],
                                 stdout=subprocess.DEVNULL, stderr=open(Path(t) / "log.txt", "wb"))
         try:
@@ -243,6 +290,23 @@ def main():
     pruefe("IBAN" in g["sperre"] and g["sperrHaken"] and g["nichtsGesendet"], "Klarname/IBAN sperren das Senden: " + g["sperre"][:90])
     pruefe("belegt" in g["dok"] and "1.000,00" in g["dok"], "Dokument-Modus mit Belegstelle")
     pruefe(g["badge"].startswith("● Online"), "Seite zeigt ehrlich 'Online'")
+    print("Texterkennung (lokal, echte Bilder und Scan-PDF):")
+    fx = ROOT / "tests" / "fixtures"
+    faelle = [[base64.b64encode((fx / n).read_bytes()).decode(), n, typ, weg] for n, typ, weg in
+              (("auszug-screenshot.png", "image/png", "einfuegen"), ("auszug-screenshot-dunkel.png", "image/png", "wahl"), ("auszug-scan.pdf", "application/pdf", "wahl"), ("auszug-scan-mit-kopfzeile.pdf", "application/pdf", "wahl"))]
+    o = lauf(browser, DIST / "Orbitron-Extractor.html", OCR_TEST % json.dumps(faelle), warte=240)
+    pruefe("fehler" not in o and not o["fehlerListe"], "kein Skript- oder CSP-Fehler " + str(o.get("fehler", o["fehlerListe"][:3])))
+    for f in o["faelle"]:
+        print(f"    {f['name']}: {f['sek']} s")
+        pruefe("4 Buchungen" in f["kpi"] and "stimmt auf den Cent" in f["kpi"], f"{f['name']}: 4 Buchungen, Summe stimmt ({f['kpi'][:70] or f['status']})")
+        for verboten in ["Mustermann", "max@example", "DE89", "1234567", "Muster Handels", "Erika"]:
+            if verboten in f["anon"]:
+                raise AssertionError(f"{f['name']}: '{verboten}' noch im anonymisierten Text: {f['anon']}")
+        pruefe("Texterkennung" in f["warnung"], f"{f['name']}: Warnhinweis zur Texterkennung, keine Klarnamen")
+    g = lauf(browser, DIST / "Orbitron-Agent.html", AGENT_OCR_TEST % faelle[0][0], warte=180)
+    pruefe("fehler" not in g and "4 Buchungen" in g.get("quelle", ""), "Agent liest Screenshot selbst: " + g.get("quelle", g.get("fehler", g.get("status", "")))[:100])
+    pruefe(not any(v in g["vorschau"] for v in ["Mustermann", "DE89", "Muster Handels", "Erika"]), "Vorschau ist anonymisiert")
+    pruefe(g["gesendet"] == 0 and g["start"], "nichts gesendet, Freigabe nötig " + g["sperre"][:80])
     print("BROWSER-TEST: alles grün")
     return 0
 

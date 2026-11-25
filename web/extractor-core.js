@@ -252,6 +252,9 @@ const RE_VORNAME_NACHNAME = new RegExp(`${WG}(?=(${NAMTOK})(?![a-zäöüß])[ \\
 // "Anna und Paul Beispiel": beide Vornamen gehören zum Nachnamen
 const RE_UND = new RegExp(`${WG}(${NAMTOK})(?![a-zäöüß])[ \\t]+und[ \\t]+(${NAMTOK})(?![a-zäöüß])[ \\t]+(${NAMTOK})(?![a-zäöüß])`, "g");
 
+// Register, Bescheide: "Beispiel, Paul, Teststadt" (Nachname, Vorname)
+const RE_NACHVOR = new RegExp(`${WG}([A-ZÄÖÜ][a-zäöüß\\-]{2,}),[ \\t]+([A-ZÄÖÜ][a-zäöüß\\-]{2,})(?=[ \\t]*(?:,|$|\\*))`, "gm");
+
 export function lerneNamen(text, whitelist = STANDARD_WHITELIST) {
   const wl = wlRegex(whitelist);
   const gefunden = new Map(); // schlüssel (klein) -> Schreibweise
@@ -271,6 +274,10 @@ export function lerneNamen(text, whitelist = STANDARD_WHITELIST) {
   const erste = text.split(/\r?\n/).find((z) => z.trim());
   if (erste && (m = RE_BRIEFKOPF.exec(erste))) nimm(m[1], true);
   // "Vorname Nachname" mit bekanntem Vornamen, auch GROSSGESCHRIEBEN
+  RE_NACHVOR.lastIndex = 0;
+  while ((m = RE_NACHVOR.exec(text))) {
+    if (VORNAMEN.has(m[2].toLowerCase()) && !VORNAMEN.has(m[1].toLowerCase())) nimm(m[2] + " " + m[1], false);
+  }
   RE_UND.lastIndex = 0;
   while ((m = RE_UND.exec(text))) {
     if (VORNAMEN.has(m[1].toLowerCase()) || VORNAMEN.has(m[2].toLowerCase())) { nimm(m[1] + " " + m[3], false); nimm(m[2] + " " + m[3], false); }
@@ -403,7 +410,7 @@ export function pseudonymisiere(text, opt = {}) {
   for (const d of gebs) t = t.replace(new RegExp("(?<![\\d.])" + esc(d) + "(?![\\d])", "g"), () => id("GEBDATUM", d));
   // 3c) Adressen im Netz: Webseiten, Profile, lokale Adressen
   t = t.replace(/(?<![\w@.-])(?:https?:\/\/|www\.)[^\s)>\]]+|(?<![\w@.-])(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\/\S*|(?<![\w@.-])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|de|net|org|io|eu|app|dev|me|co|ai|ch|at)(?:\/[^\s)>\]]*)?(?![\w@])/gi,
-    (m) => (inWl(m, wl) ? m : id("URL", m.replace(/[.,;]+$/, ""))));
+    (m) => { const pfad = /\/[^\/\s]/.test(m.replace(/^https?:\/\//i, "")); return !pfad && inWl(m, wl) ? m : id("URL", m.replace(/[.,;]+$/, "")); });
   // 4) Anreden und Namensfelder
   t = t.replace(ANREDE, (m, n) => m.replace(n, ersetzen("PERSON", n.trim()) + (n.endsWith(" ") ? " " : "")));
   t = t.replace(NAMENSFELD, (m, n) => m.replace(n, ersetzen("PERSON", n.trim()) + (n.endsWith(" ") ? " " : "")));

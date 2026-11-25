@@ -38,6 +38,30 @@ def main():
         subprocess.run([br, "--headless", "--disable-gpu", "--no-pdf-header-footer", f"--print-to-pdf={OUT}", h.as_uri()],
                        check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print(OUT, OUT.stat().st_size, "Byte")
+    # Bildschirmfoto (hell und dunkel) und "Scan": PDF, das nur das Bild enthält
+    hell = OUT.with_name("auszug-screenshot.png")
+    dunkel = OUT.with_name("auszug-screenshot-dunkel.png")
+    scan = OUT.with_name("auszug-scan.pdf")
+    stil_hell = "<style>body{font:19px Arial;background:#fff;color:#111}</style>"
+    stil_dunkel = "<style>body{font:19px Arial;background:#14181d;color:#e8eaed}</style>"
+    with tempfile.TemporaryDirectory() as t:
+        for ziel, stil in ((hell, stil_hell), (dunkel, stil_dunkel)):
+            h = Path(t) / (ziel.stem + ".html")
+            h.write_text(HTML % zeilen + stil, encoding="utf-8")
+            subprocess.run([br, "--headless", "--disable-gpu", "--hide-scrollbars", "--window-size=1000,520", f"--screenshot={ziel}", h.as_uri()],
+                           check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        h = Path(t) / "scan.html"
+        h.write_text(f"<!doctype html><style>@page{{margin:10mm}}body{{margin:0}}img{{width:100%}}</style><img src='{hell.as_uri()}'>", encoding="utf-8")
+        subprocess.run([br, "--headless", "--disable-gpu", "--no-pdf-header-footer", f"--print-to-pdf={scan}", h.as_uri()],
+                       check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    misch = OUT.with_name("auszug-scan-mit-kopfzeile.pdf")
+    with tempfile.TemporaryDirectory() as t:
+        h = Path(t) / "misch.html"
+        h.write_text(f"<!doctype html><style>@page{{margin:10mm}}body{{margin:0;font:12px Arial}}img{{width:100%}}</style><div>Eingescannt am 03.02.2025, Seite 1 von 1</div><img src='{hell.as_uri()}'>", encoding="utf-8")
+        subprocess.run([br, "--headless", "--disable-gpu", "--no-pdf-header-footer", f"--print-to-pdf={misch}", h.as_uri()],
+                       check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for p in (hell, dunkel, scan, misch):
+        print(p, p.stat().st_size, "Byte")
 
 
 if __name__ == "__main__":
