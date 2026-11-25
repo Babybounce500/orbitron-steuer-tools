@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; img-src 'self' data: blob:; connect-src 'none'">
+<title>Orbitron Anonymisieren</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-page="extractor">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>Dokument anonymisieren</h1>
+  <p class="lead">PDF lokal lesen, Zahlen auf den Cent prüfen und Namen, Anschriften und Kontodaten durch Platzhalter ersetzen. Erst danach geht der Text an eine KI.</p>
+
+  <ol class="steps" id="steps" aria-label="Ablauf">
+    <li data-s="1" class="on">Datei laden</li>
+    <li data-s="2">Prüfen</li>
+    <li data-s="3">Freigeben und kopieren</li>
+  </ol>
+
+  <section class="card" id="eingabe">
+    <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="PDF auswählen oder hierher ziehen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      <strong>PDF hierher ziehen oder auswählen</strong>
+      <small>Kontoauszüge, Verträge, Rechnungen mit Textebene. Mehrere Dateien sind möglich. Gescannte Seiten ohne Text kann das Programm nicht lesen.</small>
+      <input id="pdf" type="file" accept="application/pdf" multiple hidden>
+    </div>
+    <p class="status" id="stat" role="status" aria-live="polite"></p>
+
+    <details id="textdet">
+      <summary>Oder Text einfügen</summary>
+      <textarea id="roh" placeholder="Text aus einem anderen Programm hier einfügen" aria-label="Text einfügen"></textarea>
+    </details>
+
+    <div style="margin-top:12px">
+      <label for="namenIn">Weitere Namen, Firmen, Straßen oder Benutzernamen</label>
+      <div class="chipbox" id="chipbox"><span id="chips" class="row" style="gap:6px"></span><input id="namenIn" type="text" placeholder="Eintippen, mit Enter oder Komma bestätigen" autocomplete="off"></div>
+      <small>Rollen (Inhaber, Schenker, Mieter …), Briefköpfe, Firmen mit Rechtsform und häufige Vornamen erkennt das Programm selbst. Eigene Aliasnamen, Spitznamen und Handles musst du hier ergänzen.</small>
+    </div>
+
+    <details>
+      <summary>Einstellungen</summary>
+      <label class="check"><input id="refs" type="checkbox"> Lange Referenz- und Kundennummern ebenfalls maskieren</label>
+    </details>
+
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="go" type="button">Auswerten</button>
+      <button class="btn ghost" id="nurReid" type="button">Nur eine KI-Antwort zurückübersetzen</button>
+    </div>
+  </section>
+
+  <div id="ergebnis" hidden>
+    <section class="grid3" id="kpi" aria-label="Zusammenfassung"></section>
+
+    <section class="card">
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" aria-selected="true" data-t="p-text" id="t-text">Anonymisierter Text</button>
+        <button role="tab" aria-selected="false" data-t="p-buch" id="t-buch">Buchungen</button>
+        <button role="tab" aria-selected="false" data-t="p-namen" id="t-namen">Namen prüfen</button>
+        <button role="tab" aria-selected="false" data-t="p-reid" id="t-reid">Antwort zurückübersetzen</button>
+      </div>
+
+      <div class="panel" id="p-text" role="tabpanel">
+        <p class="muted" style="margin-bottom:8px">Nur dieser Text darf an die KI. Platzhalter sind farbig markiert. <strong>Lies ihn einmal durch</strong>, bevor du ihn freigibst.</p>
+        <pre class="out" id="anon" tabindex="0"></pre>
+      </div>
+
+      <div class="panel" id="p-buch" role="tabpanel" hidden>
+        <p id="buchInfo" class="muted"></p>
+        <div class="tablewrap"><table id="tab"></table></div>
+      </div>
+
+      <div class="panel" id="p-namen" role="tabpanel" hidden>
+        <div id="rest"></div>
+        <h3 style="margin-top:14px">Automatisch als Namen erkannt</h3>
+        <div class="row" id="gelernt" style="gap:6px"></div>
+        <div id="kand"></div>
+      </div>
+
+      <div class="panel" id="p-reid" role="tabpanel" hidden>
+        <p class="muted">Füge die Antwort der KI mit den Platzhaltern ein. Die Zuordnung bleibt auf diesem Rechner.</p>
+        <div class="row" style="margin-bottom:8px">
+          <label class="btn small" for="mapIn">Gespeicherte Zuordnung laden</label>
+          <input id="mapIn" type="file" accept="application/json,.json" hidden>
+          <small id="mapStat" class="muted"></small>
+        </div>
+        <textarea id="antwort" placeholder="KI-Antwort mit Platzhaltern" aria-label="KI-Antwort"></textarea>
+        <div class="row" style="margin:8px 0"><button class="btn primary" id="reid" type="button">Klarnamen wieder einsetzen</button><button class="btn" id="kopKlar" type="button" hidden>Ergebnis kopieren</button></div>
+        <pre class="out" id="klar" hidden></pre>
+      </div>
+    </section>
+
+    <section class="card release" id="release">
+      <label class="check"><input id="frei" type="checkbox"> Ich habe den anonymisierten Text gelesen und gebe ihn zur Weitergabe frei.</label>
+      <p class="msg" id="freiMsg"></p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="e-copy" type="button" disabled>Text kopieren</button>
+        <button class="btn" id="e-agent" type="button" disabled>Mit KI auswerten →</button>
+        <button class="btn" id="e-txt" type="button" disabled>Als Datei</button>
+        <button class="btn" id="e-csv" type="button" disabled>Buchungen als CSV</button>
+        <button class="btn" id="e-map" type="button" disabled>Zuordnung speichern</button>
+        <button class="btn ghost" id="e-prot" type="button" disabled>Protokoll</button>
+      </div>
+      <p class="msg"><strong>Die Zuordnung (Platzhalter zu Klarnamen) nie weitergeben.</strong> Speichere sie lokal, um die KI-Antwort später zurückzuübersetzen.</p>
+    </section>
+  </div>
+</main>
+<div class="foot">Pseudonymisierte Daten bleiben personenbezogene Daten. Dieses Werkzeug bereitet Zahlen vor und ersetzt weder Steuerberatung noch Rechtsberatung.</div>
+
+<script src="vendor/pdf.min.js"></script>
+<script src="shell.js"></script>
+<script type="module" src="extractor-ui.js"></script>
+</body>
+</html>

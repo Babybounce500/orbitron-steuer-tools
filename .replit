@@ -1,0 +1,11 @@
+modules = ["nodejs-24", "python-base-3.13"]
+run = "python3 serve.py"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "static"
+publicDir = "web"
+build = ["python3", "run_all.py"]

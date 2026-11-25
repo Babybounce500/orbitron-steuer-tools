@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'">
+<title>Orbitron Rechner</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-page="rechner">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>Rechner</h1>
+  <p class="lead">Im Geldmodus rechnet das Programm exakt mit Brüchen und rundet nur am Ende kaufmännisch. Damit kannst du Zahlen aus Auszügen und Erklärungen gegenprüfen.</p>
+
+  <div class="seg" role="tablist" aria-label="Rechenmodus">
+    <button role="tab" id="m-geld" aria-selected="true" type="button">Geld</button>
+    <button role="tab" id="m-wiss" aria-selected="false" type="button">Wissenschaft</button>
+  </div>
+
+  <div class="rechner">
+    <section class="card" aria-label="Rechner">
+      <div class="display">
+        <input id="expr" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Ausdruck" placeholder="z. B. 1.234,56 × 0,19">
+        <div class="res" id="res" aria-live="polite">0,00</div>
+        <div class="hint" id="hint"></div>
+      </div>
+      <div class="funcs" id="funcs" aria-label="Funktionen"></div>
+      <div id="sci"></div>
+      <div class="keys" id="keys"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn small" id="copyRes" type="button">Ergebnis kopieren</button>
+        <label class="row" id="nkWrap" style="gap:6px;font-weight:500"><small>Nachkommastellen</small>
+          <select id="nk" style="font:inherit;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)"><option value="2" selected>2</option><option value="0">0</option><option value="3">3</option><option value="4">4</option></select>
+        </label>
+      </div>
+    </section>
+
+    <aside class="card" aria-label="Protokoll">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Protokoll</h2>
+        <span class="row"><button class="btn small" id="logCsv" type="button">CSV</button><button class="btn small ghost" id="logClear" type="button">Leeren</button></span></div>
+      <ol class="log" id="log"></ol>
+      <p class="empty" id="logEmpty">Noch keine Rechnung. Mit = oder Enter landet sie hier. Antippen übernimmt sie wieder.</p>
+    </aside>
+  </div>
+
+  <details class="card">
+    <summary>Hilfe zu den Funktionen</summary>
+    <table style="margin-top:8px">
+      <tr><td><code>netto(Brutto;Satz)</code></td><td>Nettobetrag aus dem Bruttobetrag, z. B. <code>netto(119;19)</code> = 100,00</td></tr>
+      <tr><td><code>ust(Brutto;Satz)</code></td><td>Enthaltene Umsatzsteuer, z. B. <code>ust(119;19)</code> = 19,00</td></tr>
+      <tr><td><code>zins(Kapital;Satz;Tage)</code></td><td>Zinsen nach act/365, z. B. <code>zins(1000;5;73)</code> = 10,00</td></tr>
+      <tr><td><code>afa(Anschaffung;Jahre;Monate)</code></td><td>Lineare Abschreibung für die genannten Monate</td></tr>
+      <tr><td><code>runde(Wert;Stellen)</code></td><td>Kaufmännisch runden (0,5 geht weg von null)</td></tr>
+      <tr><td><code>summe(a;b;c)</code>, <code>min</code>, <code>max</code>, <code>abs</code></td><td>Argumente werden mit Semikolon getrennt</td></tr>
+      <tr><td><code>100+10%</code></td><td>Prozent wie am Taschenrechner: Aufschlag auf 100 = 110</td></tr>
+    </table>
+    <p class="muted" style="margin-top:10px">Ein Punkt in einer Zahl ist der Tausendertrenner (<code>1.000</code> = eintausend). Als Dezimalzeichen gilt das Komma. Gegenprobe mit einem echten Taschenrechner: bei Abweichung die Eingabe prüfen.</p>
+  </details>
+</main>
+<div class="foot">Dieses Werkzeug bereitet Zahlen vor und ersetzt weder Steuerberatung noch Buchhaltungssoftware.</div>
+
+<script src="calculator-engine.js"></script>
+<script src="shell.js"></script>
+<script type="module" src="rechner-ui.js"></script>
+</body>
+</html>

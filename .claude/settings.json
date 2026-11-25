@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./cases/**)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.p12)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steuer-Vorbereitung Prüfbericht</title>
+<style>
+:root{--bg:#fff;--fg:#14181f;--mut:#5b6573;--line:#d6dbe2;--ok:#1d7a46;--warn:#9a6b00;--fail:#b3261e;--head:#f3f5f8}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--fg:#e8ecf1;--mut:#9aa5b4;--line:#2c3440;--ok:#4cc38a;--warn:#e0b341;--fail:#ff8a80;--head:#1b212a}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,Segoe UI,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.3rem;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 12px}
+select{font:inherit;padding:6px 8px}
+table{border-collapse:collapse;width:100%;margin-top:12px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--head)}td.n{text-align:right;white-space:nowrap}
+.s{font-weight:700}.s.ok{color:var(--ok)}.s.warn{color:var(--warn)}.s.fail{color:var(--fail)}
+.note{color:var(--mut);font-size:.85rem;margin-top:12px}
+@media (max-width:640px){.hide-s{display:none}}
+</style></head><body><div class="wrap">
+<p><a href="index.html">← Startseite</a> · Entwickler-Ansicht: Prüfregeln, zwei Rechenwege</p>
+<h1>Prüfbericht: zwei unabhängige Rechenwege</h1>
+<p class="sub">Engine A (Python, Decimal) hat den Bericht erzeugt. Engine B (JavaScript, BigInt-Cent) rechnet hier im Browser neu. Stimmen beide überein, steht ✓.</p>
+<label>Beispieldaten: <select id="fx"><option value="muster-gmbh">Muster GmbH (sauber, eine offene Annahme)</option>
+<option value="fehler-injektion">Fehler-Injektion (4 absichtliche Fehler)</option></select></label>
+<table><thead><tr><th>ID</th><th>Prüfung</th><th>A</th><th>B</th><th>Beide gleich</th><th class="hide-s">Rechenbeleg</th></tr></thead><tbody id="rows"></tbody></table>
+<p class="note">Beispieldaten sind frei erfunden. Dies ist eine vorbereitende Prüfhilfe, keine Steuerberatung. Verantwortlich für Inhalt und Abgabe ist der Kunde. Alle Berechnungen laufen lokal.</p>
+</div>
+<script type="module">
+import { runChecks } from "./engine_b.js";
+const rows = document.getElementById("rows");
+async function laden(name) {
+  const [facts, csv, rep] = await Promise.all([
+    fetch(`data/${name}/facts.json`).then(r => r.json()),
+    fetch(`data/${name}/journal.csv`).then(r => r.text()),
+    fetch(`data/${name}/report.json`).then(r => r.json())]);
+  const b = Object.fromEntries(runChecks(facts, csv).map(x => [x.id, x]));
+  rows.innerHTML = "";
+  for (const a of rep) {
+    const x = b[a.id];
+    const gleich = x ? (x.status === a.status || (a.status === "warn" && x.status === "ok")) && (x.erwartet === a.erwartet && x.tatsaechlich === a.tatsaechlich) : null;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${a.id}</td><td>${a.name}${a.hinweis ? `<br><small>${a.hinweis}</small>` : ""}</td>
+      <td class="s ${a.status}">${a.status}</td><td class="s ${x ? x.status : ""}">${x ? x.status : "–"}</td>
+      <td>${gleich === null ? "nur A" : gleich ? "✓" : "✗ prüfen"}</td><td class="hide-s"><small>${a.beleg}</small></td>`;
+    rows.appendChild(tr);
+  }
+}
+document.getElementById("fx").addEventListener("change", e => laden(e.target.value));
+laden("muster-gmbh");
+</script></body></html>

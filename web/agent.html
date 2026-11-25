@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src https://glow-up-gemini.replit.app">
+<meta name="referrer" content="no-referrer">
+<title>Orbitron Auswerten</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-page="agent">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>Auswerten mit KI-Agent</h1>
+  <p class="lead">Der Agent ordnet Buchungen ein, findet Auffälligkeiten und notiert offene Fragen. Dokumente fasst er mit Belegstellen zusammen. Gerechnet wird immer lokal in deinem Browser.</p>
+  <div class="card" style="border-color:var(--warn)">
+    <strong>Diese Seite ist nicht offline.</strong> Nach deiner Freigabe geht der unten angezeigte, anonymisierte Text über deinen Proxy (glow-up-gemini.replit.app) an Google Gemini. Pseudonymisierte Daten bleiben personenbezogen. Sende keine Klarnamen.
+  </div>
+
+  <ol class="steps" id="steps"><li data-s="1" class="on">Daten</li><li data-s="2">Prüfen und freigeben</li><li data-s="3">Ergebnis</li></ol>
+
+  <section class="card" id="daten">
+    <h2>Daten</h2>
+    <p id="quelle" class="muted">Noch nichts geladen. Am einfachsten: unter „Anonymisieren“ freigeben und dort auf „Mit KI auswerten“ tippen.</p>
+    <div class="row">
+      <label class="btn" for="datei">Anonymisierte Datei laden (CSV oder TXT)</label>
+      <input id="datei" type="file" accept=".csv,.txt,text/csv,text/plain" hidden>
+      <button class="btn ghost" id="beispiel" type="button">Beispieldaten</button>
+    </div>
+    <details><summary>Oder Text einfügen</summary>
+      <textarea id="eingabe" aria-label="Anonymisierter Text" placeholder="Anonymisierten Text oder die CSV aus dem Anonymisierer einfügen"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" id="uebernehmen" type="button">Übernehmen</button></div>
+    </details>
+    <div class="row" id="artWahl" hidden style="margin-top:10px">
+      <label class="check"><input type="radio" name="art" value="buchungen" id="artB"> Als Buchungen auswerten</label>
+      <label class="check"><input type="radio" name="art" value="dokument" id="artD"> Als Dokument auswerten</label>
+    </div>
+  </section>
+
+  <section class="card" id="pruefen" hidden>
+    <h2>Das wird gesendet</h2>
+    <p class="muted" id="sendInfo"></p>
+    <pre class="out" id="vorschau" tabindex="0" style="max-height:280px"></pre>
+    <p id="sperre" class="status err" role="alert"></p>
+    <label class="check"><input id="freigabe" type="checkbox"> Ich habe den Text geprüft. Er darf über meinen Proxy an Google Gemini gesendet werden.</label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="start" type="button" disabled>Auswertung starten</button>
+      <button class="btn" id="stopp" type="button" hidden>Abbrechen</button>
+    </div>
+    <p class="status" id="stat" role="status" aria-live="polite"></p>
+  </section>
+
+  <div id="ergebnis" hidden>
+    <section class="grid3" id="kpi"></section>
+    <section class="card" id="kiKarte"><h2>Einschätzung der KI</h2><div id="ki"></div></section>
+    <section class="card" id="auffKarte"><h2>Auffälligkeiten und offene Fragen</h2><div id="auff"></div></section>
+    <section class="card" id="katKarte"><h2>Summen je Kategorie und Monat</h2><div class="grid2"><div class="tablewrap"><table id="katTab"></table></div><div class="tablewrap"><table id="monTab"></table></div></div></section>
+    <section class="card" id="buchKarte"><h2>Buchungen</h2><p class="muted">Kategorien kannst du ändern. Die Summen rechnen sofort neu.</p><div class="tablewrap"><table id="buchTab"></table></div></section>
+    <section class="card" id="dokKarte" hidden><h2>Eckdaten des Dokuments</h2><div id="dok"></div></section>
+    <section class="card">
+      <h2>Speichern</h2>
+      <label class="check" id="klarWrap" hidden><input id="klar" type="checkbox"> Klarnamen lokal wieder einsetzen (nur in der gespeicherten Datei)</label>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="x-md" type="button">Bericht speichern</button>
+        <button class="btn" id="x-csv" type="button">Buchungen als CSV</button>
+        <button class="btn ghost" id="x-druck" type="button">Drucken</button>
+      </div>
+      <p class="muted" id="verbrauch" style="margin-top:10px"></p>
+    </section>
+  </div>
+</main>
+<div class="foot">Die Auswertung ist eine Vorbereitung und ersetzt weder Steuerberatung noch Rechtsberatung. Prüfe die Einordnungen selbst.</div>
+<script src="shell.js"></script>
+<script type="module" src="agent-ui.js"></script>
+</body>
+</html>

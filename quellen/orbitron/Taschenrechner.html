@@ -1,0 +1,594 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBITRON CALCULUS // Numeric Core</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020807;
+            --panel: rgba(5, 28, 20, .94);
+            --panel-2: rgba(3, 18, 13, .96);
+            --line: rgba(18, 232, 121, .32);
+            --green: #12e879;
+            --mint: #d8ffe9;
+            --muted: #79a992;
+            --yellow: #d7ff80;
+            --danger: #ff6b7a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(circle at 50% 0%, rgba(18,232,121,.1), transparent 38%), var(--bg);
+            color: var(--mint);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 18px;
+            overflow: auto;
+        }
+        .calculator-container {
+            background: linear-gradient(145deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            color: var(--mint);
+            padding: 18px;
+            border-radius: 16px;
+            box-shadow: 0 0 28px rgba(18,232,121,.14), inset 0 0 28px rgba(18,232,121,.035);
+            width: min(100%, 860px);
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(220px, .65fr);
+            gap: 18px;
+        }
+        .instrument-header { grid-column: 1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:12px; }
+        .instrument-title { margin:0; color:var(--green); font:800 clamp(13px,2vw,18px)/1 'Orbitron',sans-serif; letter-spacing:.14em; }
+        .instrument-subtitle { color:var(--muted); font:600 9px 'Orbitron',sans-serif; letter-spacing:.12em; margin-top:6px; }
+        .mode-switch { display:flex; align-items:center; gap:8px; color:var(--yellow); font:700 10px 'Orbitron',sans-serif; white-space:nowrap; }
+        .mode-switch input { accent-color:var(--green); width:18px; height:18px; }
+        .angle-select { color:var(--mint); background:#06180f; border:1px solid var(--line); border-radius:6px; padding:5px 7px; font:700 10px 'Orbitron',sans-serif; }
+        .history-toggle { display:none; border:1px solid var(--line); border-radius:7px; background:rgba(18,232,121,.08); color:var(--green); padding:8px 10px; font:700 9px 'Orbitron',sans-serif; cursor:pointer; }
+        .history-toggle:hover { background:rgba(18,232,121,.2); box-shadow:0 0 12px rgba(18,232,121,.2); }
+        .display-shell { position:relative; border:1px solid var(--line); border-radius:11px; background:#010b07; padding:10px; box-shadow:inset 0 0 18px rgba(18,232,121,.08); }
+        .calculator input {
+            width: 100%;
+            padding: 12px 42px 8px 12px;
+            font:600 clamp(1.45rem,5vw,2.25rem)/1.15 'Orbitron',sans-serif;
+            text-align: right;
+            border:0;
+            margin:0;
+            color:var(--mint);
+            background:transparent;
+            position: relative;
+        }
+        .display-meta { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font:600 9px 'Orbitron',sans-serif; letter-spacing:.08em; padding:3px 8px 0; }
+        .calculator {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-width: 100%;
+        }
+        .calculator button {
+            flex: 1 1 21%;
+            min-height: 48px;
+            padding: 10px;
+            font:700 1rem 'Orbitron',sans-serif;
+            border-radius: 9px;
+            background: rgba(8,72,45,.8);
+            color:var(--mint);
+            border: 1px solid rgba(18,232,121,.22);
+            cursor: pointer;
+            transition: background .18s, border-color .18s, transform .18s, box-shadow .18s;
+        }
+        .calculator button:hover {
+            background: rgba(18,232,121,.22);
+            border-color:var(--green);
+            box-shadow:0 0 12px rgba(18,232,121,.2);
+            transform:translateY(-1px);
+        }
+        .calculator .btn-operation {
+            background: rgba(106,86,12,.6);
+            color:var(--yellow);
+        }
+        .calculator .btn-equal {
+            background:var(--green);
+            color:#03130c;
+            flex: 1 1 47%;
+        }
+        .calculator .btn-clear {
+            background:rgba(142,34,54,.7);
+            color:#fff;
+        }
+        .calculator .btn-memory {
+            background:rgba(94,77,13,.8);
+            color:var(--yellow);
+        }
+        .calculator .btn-special {
+            background:rgba(19,77,90,.8);
+            color:#9ff6ff;
+        }
+        .copy-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--green);
+            font-size: 1rem;
+            background:transparent;
+            border:0;
+            padding:8px;
+        }
+        .memory-indicator { color:var(--yellow); font-weight:800; }
+        .scientific-pad { display:none; width:100%; gap:8px; margin-top:8px; }
+        .scientific-pad.visible { display:flex; flex-wrap:wrap; }
+        .scientific-pad button { flex:1 1 21%; min-height:40px; font-size:.78rem; color:#9ff6ff; background:rgba(10,48,60,.82); }
+        .calculator-actions { display:flex; width:100%; margin-top:10px; }
+        .calculator-actions button { flex:1; min-height:44px; border:1px solid var(--line); border-radius:9px; background:linear-gradient(145deg,rgba(18,232,121,.17),rgba(18,232,121,.06)); color:var(--green); font:700 .7rem 'Orbitron',sans-serif; cursor:pointer; letter-spacing:.03em; box-shadow:0 0 10px rgba(18,232,121,.06); }
+        .calculator-actions button i { margin-right:5px; }
+        .calculator-actions button:hover { background:linear-gradient(145deg,rgba(18,232,121,.3),rgba(18,232,121,.1)); border-color:var(--green); box-shadow:0 0 16px rgba(18,232,121,.22); transform:translateY(-1px); }
+        .calculator-actions button:active { transform:translateY(0); box-shadow:inset 0 0 10px rgba(0,0,0,.2); }
+        .calculator-actions button:first-child { background:linear-gradient(145deg,#12e879,#07914d); color:#03130c; border-color:#9affc8; }
+        .calculator-actions button:first-child:hover { box-shadow:0 0 18px rgba(18,232,121,.42); }
+        .history-panel { min-width:0; border:1px solid var(--line); border-radius:11px; padding:12px; background:rgba(1,12,8,.58); }
+        .history-heading { display:flex; justify-content:space-between; gap:8px; color:var(--green); font:700 10px 'Orbitron',sans-serif; letter-spacing:.1em; margin-bottom:10px; }
+        .history-clear { border:0; background:none; color:var(--muted); cursor:pointer; font:600 9px 'Inter',sans-serif; }
+        .history-list { display:flex; flex-direction:column; gap:7px; max-height:330px; overflow:auto; }
+        .history-item { width:100%; text-align:left; border:1px solid rgba(18,232,121,.15); border-radius:7px; padding:8px; background:rgba(5,36,23,.7); color:var(--mint); cursor:pointer; }
+        .history-item:hover { border-color:var(--green); background:rgba(18,232,121,.16); }
+        .history-expression { display:block; color:var(--muted); font:500 10px 'JetBrains Mono',monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .history-result { display:block; margin-top:3px; color:var(--green); font:700 13px 'Orbitron',sans-serif; }
+        .history-empty { color:var(--muted); font-size:.8rem; line-height:1.5; }
+        .verification-line { color:var(--muted); font-size:.72rem; margin-top:8px; min-height:16px; }
+        @media (max-width:700px) {
+            body { align-items:flex-start; padding:10px; }
+            .calculator-container { grid-template-columns:1fr; padding:12px; gap:12px; }
+            .history-toggle { display:inline-block; }
+            .history-panel { display:none; order:3; }
+            .history-panel.open { display:block; }
+            .instrument-header { align-items:flex-start; }
+            .instrument-title { font-size:12px; letter-spacing:.1em; }
+            .instrument-header > div:first-child { min-width:0; }
+            .mode-switch { margin-left:auto; }
+            .calculator button { min-height:46px; padding:8px 5px; font-size:.82rem; }
+            .history-list { max-height:190px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Central Calculator -->
+    <div class="calculator-container">
+        <header class="instrument-header">
+            <div>
+                <h1 class="instrument-title">ORBITRON CALCULUS</h1>
+                <div class="instrument-subtitle">NUMERIC CORE // VERIFIED LOCAL ENGINE</div>
+            </div>
+            <button class="history-toggle" type="button" id="historyToggle" onclick="toggleHistory()" aria-expanded="false"><i class="fas fa-clock-rotate-left"></i> Verlauf</button>
+            <label class="mode-switch">
+                <input type="checkbox" id="scientificMode">
+                <span>SCIENTIFIC</span>
+            </label>
+            <label class="mode-switch" for="angleMode">WINKEL
+                <select class="angle-select" id="angleMode" aria-label="Winkelmodus">
+                    <option value="deg">DEG</option>
+                    <option value="rad">RAD</option>
+                </select>
+            </label>
+        </header>
+        <div class="calculator">
+            <div style="position: relative; width: 100%;">
+                <input type="text" id="display" readonly aria-label="Rechenausdruck und Ergebnis" aria-live="polite" spellcheck="false">
+                <button type="button" class="copy-icon" aria-label="Ergebnis kopieren" onclick="copyToClipboard()"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                <div class="display-meta"><span id="displayMode">BASIC // READY</span><span><span class="memory-indicator" id="memoryIndicator" hidden>M</span> <span id="displayUnit">DEG · EXACT</span></span></div>
+            </div>
+            <!-- Memory Functions -->
+            <button class="btn-memory" onclick="memoryClear()">MC</button>
+            <button class="btn-memory" onclick="memoryRecall()">MR</button>
+            <button class="btn-memory" onclick="memoryAdd()">M+</button>
+            <button class="btn-memory" onclick="memorySubtract()">M-</button>
+            <button class="btn-memory" onclick="memoryStore()">MS</button>
+            <!-- Special Functions -->
+            <button class="btn-special" onclick="reciprocal()">1/x</button>
+            <button class="btn-special" onclick="square()">x²</button>
+            <button class="btn-special" onclick="squareRoot()">√x</button>
+            <button class="btn-special" onclick="percentage()">%</button>
+            <!-- Number and basic operation buttons -->
+            <button onclick="addToDisplay('7')">7</button>
+            <button onclick="addToDisplay('8')">8</button>
+            <button onclick="addToDisplay('9')">9</button>
+            <button class="btn-operation" onclick="addToDisplay('/')">/</button>
+            <button onclick="addToDisplay('4')">4</button>
+            <button onclick="addToDisplay('5')">5</button>
+            <button onclick="addToDisplay('6')">6</button>
+            <button class="btn-operation" onclick="addToDisplay('*')">x</button>
+            <button onclick="addToDisplay('1')">1</button>
+            <button onclick="addToDisplay('2')">2</button>
+            <button onclick="addToDisplay('3')">3</button>
+            <button class="btn-operation" onclick="addToDisplay('-')">-</button>
+            <button onclick="toggleSign()">+/-</button>
+            <button onclick="addToDisplay('0')">0</button>
+            <button onclick="addToDisplay('.')">.</button>
+            <button class="btn-operation" onclick="addToDisplay('+')">+</button>
+            <!-- Clear and Equals -->
+            <button class="btn-clear" onclick="clearDisplay()">C</button>
+            <button class="btn-equal" onclick="calculate()">=</button>
+            <div class="scientific-pad" id="scientificPad">
+                <button onclick="addToDisplay('sin(')">sin</button>
+                <button onclick="addToDisplay('cos(')">cos</button>
+                <button onclick="addToDisplay('tan(')">tan</button>
+                <button onclick="addToDisplay('log(')">log</button>
+                <button onclick="addToDisplay('ln(')">ln</button>
+                <button onclick="addToDisplay('sqrt(')">√</button>
+                <button onclick="addToDisplay('^')">xʸ</button>
+                <button onclick="addToDisplay('pi')">π</button>
+                <button onclick="addToDisplay('e')">e</button>
+                <button onclick="addToDisplay('(')">(</button>
+                <button onclick="addToDisplay(')')">)</button>
+                <button onclick="addToDisplay('!')">n!</button>
+            </div>
+            <div class="calculator-actions">
+                <button type="button" onclick="sendToChat()"><i class="fas fa-comment-dots"></i> An Chat senden</button>
+            </div>
+        </div>
+        <aside class="history-panel">
+            <div class="history-heading"><span>BERECHNUNGSVERLAUF</span><button class="history-clear" type="button" onclick="clearHistory()">Leeren</button></div>
+            <div class="history-list" id="historyList"><div class="history-empty">Noch keine Berechnungen.</div></div>
+        </aside>
+    </div>
+    <script src="calculator-engine.js"></script>
+    <script>
+        const calculatorEngine = window.OrbitronCalculatorEngine;
+        const HISTORY_KEY = 'orbitron_calculator_history';
+        const MEMORY_KEY = 'orbitron_calculator_memory';
+        function readStoredNumber(key) {
+            try {
+                const value = Number(localStorage.getItem(key));
+                return Number.isFinite(value) ? value : 0;
+            } catch { return 0; }
+        }
+        function readStoredHistory() {
+            try {
+                const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+                return Array.isArray(value) ? value.filter((item) => item && typeof item.expression === 'string' && typeof item.result === 'string').slice(0, 20) : [];
+            } catch { return []; }
+        }
+        let memory = readStoredNumber(MEMORY_KEY);
+        let lastCalculation = null;
+        let calculationHistory = readStoredHistory();
+        let justEvaluated = false;
+        const display = document.getElementById('display');
+        const historyList = document.getElementById('historyList');
+        const scientificMode = document.getElementById('scientificMode');
+        const angleMode = document.getElementById('angleMode');
+        const displayMode = document.getElementById('displayMode');
+        const displayUnit = document.getElementById('displayUnit');
+        const memoryIndicator = document.getElementById('memoryIndicator');
+
+        function formatResult(value) {
+            return calculatorEngine.format(Number(value)).text;
+        }
+
+        function evaluateExpression(source) {
+            return calculatorEngine.calculate(source, { angle: angleMode.value }).value;
+        }
+
+        function updateMemoryIndicator() {
+            memoryIndicator.hidden = memory === 0;
+        }
+
+        function updateDisplayUnit(approximate = false) {
+            displayUnit.textContent = `${angleMode.value.toUpperCase()} · ${approximate ? '≈ APPROX' : 'EXACT'}`;
+        }
+
+        function setStatus(message) {
+            displayMode.textContent = message || `${scientificMode.checked ? 'SCIENTIFIC' : 'BASIC'} // READY`;
+        }
+
+        function setFormattedResult(value, approximate = false) {
+            const formatted = calculatorEngine.format(value);
+            display.value = formatted.text;
+            justEvaluated = true;
+            updateDisplayUnit(approximate || formatted.approximate);
+            return formatted;
+        }
+
+        function addHistory(expression, result) {
+            calculationHistory.unshift({ expression, result, createdAt: Date.now() });
+            calculationHistory = calculationHistory.slice(0, 20);
+            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(calculationHistory)); } catch {}
+            renderHistory();
+        }
+
+        function renderHistory() {
+            if (!calculationHistory.length) {
+                historyList.innerHTML = '<div class="history-empty">Noch keine Berechnungen.</div>';
+                return;
+            }
+            historyList.innerHTML = calculationHistory.map((item, index) => `
+                <button class="history-item" type="button" onclick="restoreHistory(${index})">
+                    <span class="history-expression">${escapeHtml(item.expression)}</span>
+                    <span class="history-result">= ${escapeHtml(item.result)}</span>
+                </button>`).join('');
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[char]));
+        }
+
+        function restoreHistory(index) {
+            const item = calculationHistory[index];
+            if (!item) return;
+            display.value = item.expression;
+            lastCalculation = item;
+            justEvaluated = false;
+            setStatus('VERLAUF GELADEN');
+        }
+
+        function clearHistory() {
+            calculationHistory = [];
+            try { localStorage.removeItem(HISTORY_KEY); } catch {}
+            renderHistory();
+        }
+
+        function toggleHistory() {
+            const panel = document.querySelector('.history-panel');
+            const button = document.getElementById('historyToggle');
+            const isOpen = panel.classList.toggle('open');
+            button.setAttribute('aria-expanded', String(isOpen));
+            button.innerHTML = isOpen
+                ? '<i class="fas fa-xmark"></i> Verlauf schließen'
+                : '<i class="fas fa-clock-rotate-left"></i> Verlauf';
+        }
+
+        function clearDisplay() {
+            display.value = '';
+            display.title = '';
+            lastCalculation = null;
+            justEvaluated = false;
+            updateDisplayUnit(false);
+            setStatus();
+        }
+
+        function addToDisplay(value) {
+            const token = String(value);
+            const startsNew = /^[0-9.,(a-z√]/i.test(token);
+            if (display.value === 'ERR') display.value = '';
+            if (justEvaluated) {
+                if (startsNew) display.value = '';
+                justEvaluated = false;
+            }
+
+            if (/^[+\-*/^]$/.test(token)) {
+                const last = display.value.slice(-1);
+                if (last === token) return;
+                if (/[+*/^]$/.test(last) && token !== '-') return;
+            }
+            if (token === '.' || token === ',') {
+                const currentNumber = display.value.match(/(?:^|[+\-*/^(),])([^+\-*/^(),]*)$/)?.[1] || '';
+                if (/[.,]/.test(currentNumber)) return;
+            }
+            if (token === 'x' || token === 'X') {
+                display.value += '*';
+            } else {
+                display.value += token;
+            }
+            display.title = '';
+            lastCalculation = null;
+            updateDisplayUnit(false);
+            setStatus();
+        }
+
+        function calculate() {
+            const expression = display.value.trim();
+            if (!expression || expression === 'ERR') return;
+            try {
+                const calculation = calculatorEngine.calculate(expression, { angle: angleMode.value });
+                const formatted = setFormattedResult(calculation.value, calculation.approximate);
+                display.title = calculation.approximate ? 'Dieser Zahlenwert ist wegen der IEEE-754-Gleitkommadarstellung möglicherweise ungenau.' : '';
+                lastCalculation = { expression, result: formatted.text };
+                addHistory(expression, formatted.text);
+                setStatus('BERECHNUNG ABGESCHLOSSEN');
+            } catch (error) {
+                display.value = 'ERR';
+                display.title = error.message;
+                displayMode.textContent = `ERR // ${error.message}`;
+                justEvaluated = true;
+                lastCalculation = null;
+                updateDisplayUnit(false);
+            }
+        }
+
+        function sendToChat() {
+            if (!lastCalculation && display.value.trim() && display.value !== 'ERR') calculate();
+            if (!lastCalculation) return;
+            const expression = String(lastCalculation.expression || '').trim();
+            const result = String(lastCalculation.result || '').trim();
+            try {
+                window.parent.postMessage({
+                    type: 'orbitron-calculator-result',
+                    expression,
+                    result,
+                    steps: `Originaler Ausdruck ${expression} wurde lokal mit dem sicheren Scientific Parser ausgewertet. Ergebnis: ${result}.`
+                }, window.location.origin === 'null' ? '*' : window.location.origin);
+                setStatus('AN CHAT GESENDET');
+            } catch (error) {
+                setStatus(`CHAT-ÜBERTRAGUNG FEHLGESCHLAGEN: ${error.message}`);
+            }
+        }
+
+        scientificMode.addEventListener('change', () => {
+            document.getElementById('scientificPad').classList.toggle('visible', scientificMode.checked);
+            setStatus();
+        });
+        angleMode.addEventListener('change', () => {
+            updateDisplayUnit(false);
+            setStatus(`WINKELMODUS ${angleMode.value.toUpperCase()}`);
+        });
+
+        // Square function x²
+        function square() {
+            applyUnary('x²', (value) => value * value);
+        }
+
+        // Square root function √x
+        function squareRoot() {
+            applyUnary('√x', Math.sqrt);
+        }
+
+        // Reciprocal function 1/x
+        function reciprocal() {
+            applyUnary('1/x', (value) => {
+                if (value === 0) throw new calculatorEngine.CalcError('Division durch null');
+                return 1 / value;
+            });
+        }
+
+        // Toggle between positive and negative
+        function toggleSign() {
+            applyUnary('+/-', (value) => -value);
+        }
+
+        // Percentage function
+        function percentage() {
+            applyUnary('%', (value) => value / 100);
+        }
+
+        function applyUnary(label, operation) {
+            const expression = display.value.trim();
+            if (!expression || expression === 'ERR') return;
+            try {
+                const sourceValue = calculatorEngine.calculate(expression, { angle: angleMode.value });
+                const result = operation(sourceValue.value);
+                const formatted = setFormattedResult(result, sourceValue.approximate);
+                lastCalculation = { expression: `${label}(${expression})`, result: formatted.text };
+                addHistory(lastCalculation.expression, formatted.text);
+                display.title = '';
+                setStatus(`${label} ANGEWENDET`);
+            } catch (error) {
+                display.value = 'ERR';
+                display.title = error.message;
+                displayMode.textContent = `ERR // ${error.message}`;
+                justEvaluated = true;
+                lastCalculation = null;
+                updateDisplayUnit(false);
+            }
+        }
+
+        // Memory Functions
+        function memoryClear() {
+            memory = 0;
+            try { localStorage.setItem(MEMORY_KEY, '0'); } catch {}
+            updateMemoryIndicator();
+            setStatus('Speicher gelöscht');
+        }
+
+        function memoryRecall() {
+            const value = calculatorEngine.format(memory).text;
+            if (display.value && /[+\-*/^(]$/.test(display.value)) addToDisplay(value);
+            else {
+                display.value = value;
+                lastCalculation = null;
+                justEvaluated = true;
+            }
+            updateDisplayUnit(false);
+        }
+
+        function getDisplayNumber() {
+            const expression = display.value.trim();
+            if (!expression || expression === 'ERR') return null;
+            try { return calculatorEngine.calculate(expression, { angle: angleMode.value }).value; }
+            catch { return null; }
+        }
+
+        function memoryAdd() {
+            const value = getDisplayNumber();
+            if (value === null) return;
+            memory += value;
+            persistMemory();
+            setStatus('Zum Speicher addiert');
+        }
+
+        function memorySubtract() {
+            const value = getDisplayNumber();
+            if (value === null) return;
+            memory -= value;
+            persistMemory();
+            setStatus('Vom Speicher abgezogen');
+        }
+
+        function memoryStore() {
+            const value = getDisplayNumber();
+            if (value === null) return;
+            memory = value;
+            persistMemory();
+            setStatus('Im Speicher abgelegt');
+        }
+
+        function persistMemory() {
+            try { localStorage.setItem(MEMORY_KEY, String(memory)); } catch {}
+            updateMemoryIndicator();
+        }
+
+        // Keyboard Input Handling
+        document.addEventListener('keydown', function(event) {
+            const key = event.key;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
+            if (key === 'Enter') {
+                event.preventDefault();
+                calculate();
+            } else if (key === 'Backspace') {
+                event.preventDefault();
+                if (display.value === 'ERR') clearDisplay();
+                else { display.value = display.value.slice(0, -1); justEvaluated = false; lastCalculation = null; }
+            } else if (key === 'Delete' || key === 'Escape' || key.toLowerCase() === 'c') {
+                event.preventDefault();
+                clearDisplay();
+            } else if (/^[0-9.,+\-*/^()%!]$/.test(key)) {
+                event.preventDefault();
+                addToDisplay(key);
+            } else if (/^[a-z]$/i.test(key)) {
+                event.preventDefault();
+                if (key.toLowerCase() === 'x') addToDisplay('*');
+                else if (key.toLowerCase() === 'p') addToDisplay('p');
+                else if (key.toLowerCase() === 'i' && display.value.endsWith('p')) addToDisplay('i');
+                else if (key.toLowerCase() === 'e') addToDisplay('e');
+            }
+        });
+
+        // Copy and Paste Handling
+        async function copyToClipboard() {
+            const text = display.value;
+            if (!text) return;
+            try {
+                if (navigator.clipboard?.writeText && window.isSecureContext) await navigator.clipboard.writeText(text);
+                else {
+                    display.select();
+                    display.setSelectionRange(0, 99999);
+                    document.execCommand('copy');
+                }
+                setStatus('In Zwischenablage kopiert');
+            } catch {
+                setStatus('Kopieren nicht möglich');
+            }
+        }
+
+        display.addEventListener('paste', function(event) {
+            event.preventDefault();
+            const text = event.clipboardData.getData('text/plain');
+            display.value = text.trim().replace(/\s*([+\-*/^()])\s*/g, '$1');
+            justEvaluated = false;
+            lastCalculation = null;
+            display.title = '';
+            setStatus();
+        });
+        updateMemoryIndicator();
+        updateDisplayUnit(false);
+        renderHistory();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

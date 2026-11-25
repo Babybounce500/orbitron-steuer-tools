@@ -1,0 +1,11 @@
+{
+  "name": "steuer-vorbereitung-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministische Prüfhilfe für Buchhaltung und Steuererklärung (Vorbereitung, keine Steuerberatung). Keine Abhängigkeiten.",
+  "scripts": {
+    "start": "python3 serve.py",
+    "test": "python3 run_all.py"
+  }
+}

@@ -1,0 +1,245 @@
+[
+  {
+    "ausdruck": "0,1+0,2",
+    "erwartet": "0,30",
+    "exakt": true
+  },
+  {
+    "ausdruck": "1.234.567,89*0,19",
+    "erwartet": "234.567,90",
+    "exakt": false
+  },
+  {
+    "ausdruck": "100/3",
+    "erwartet": "33,33",
+    "exakt": false
+  },
+  {
+    "ausdruck": "1/3*3",
+    "erwartet": "1,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "runde(2,675)",
+    "erwartet": "2,68",
+    "exakt": true
+  },
+  {
+    "ausdruck": "runde(-2,675)",
+    "erwartet": "-2,68",
+    "exakt": true
+  },
+  {
+    "ausdruck": "runde(2,5;0)",
+    "erwartet": "3,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "runde(-2,5;0)",
+    "erwartet": "-3,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "100+10%",
+    "erwartet": "110,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "100-10%",
+    "erwartet": "90,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "50%",
+    "erwartet": "0,50",
+    "exakt": true
+  },
+  {
+    "ausdruck": "200*10%",
+    "erwartet": "20,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "100+10%+10%",
+    "erwartet": "121,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "-2^2",
+    "erwartet": "-4,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "2^-2",
+    "erwartet": "0,25",
+    "exakt": true
+  },
+  {
+    "ausdruck": "2^10",
+    "erwartet": "1.024,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "(2+3)*4",
+    "erwartet": "20,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "2^3^2",
+    "erwartet": "512,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "9007199254740993+2",
+    "erwartet": "9.007.199.254.740.995,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "123456789*987654321",
+    "erwartet": "121.932.631.112.635.269,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "12345678901,23+0,01",
+    "erwartet": "12.345.678.901,24",
+    "exakt": true
+  },
+  {
+    "ausdruck": "24931,20-24931,19",
+    "erwartet": "0,01",
+    "exakt": true
+  },
+  {
+    "ausdruck": "9956,05-9956,06",
+    "erwartet": "-0,01",
+    "exakt": true
+  },
+  {
+    "ausdruck": "netto(119;19)",
+    "erwartet": "100,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "ust(119;19)",
+    "erwartet": "19,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "runde(netto(29,75;19))",
+    "erwartet": "25,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "ust(29,75;19)",
+    "erwartet": "4,75",
+    "exakt": true
+  },
+  {
+    "ausdruck": "zins(1000;5;365)",
+    "erwartet": "50,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "zins(900;5;73)",
+    "erwartet": "9,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "zins(1000;5;100)",
+    "erwartet": "13,70",
+    "exakt": false
+  },
+  {
+    "ausdruck": "afa(5000;5;12)",
+    "erwartet": "1.000,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "afa(2345,67;5;6)",
+    "erwartet": "234,57",
+    "exakt": false
+  },
+  {
+    "ausdruck": "min(3;2;5)",
+    "erwartet": "2,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "max(3;2;5)",
+    "erwartet": "5,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "summe(1,10;2,20;3,30)",
+    "erwartet": "6,60",
+    "exakt": true
+  },
+  {
+    "ausdruck": "abs(-5,5)",
+    "erwartet": "5,50",
+    "exakt": true
+  },
+  {
+    "ausdruck": "1.000,50*3",
+    "erwartet": "3.001,50",
+    "exakt": true
+  },
+  {
+    "ausdruck": "0,07*100",
+    "erwartet": "7,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "19%*100",
+    "erwartet": "19,00",
+    "exakt": true
+  },
+  {
+    "ausdruck": "1/0",
+    "fehler": true
+  },
+  {
+    "ausdruck": "1+",
+    "fehler": true
+  },
+  {
+    "ausdruck": "2 3",
+    "fehler": true
+  },
+  {
+    "ausdruck": "1.5+1",
+    "fehler": true
+  },
+  {
+    "ausdruck": "foo(1)",
+    "fehler": true
+  },
+  {
+    "ausdruck": "runde(1;2;3)",
+    "fehler": true
+  },
+  {
+    "ausdruck": "2^0,5",
+    "fehler": true
+  },
+  {
+    "ausdruck": "(1+2",
+    "fehler": true
+  },
+  {
+    "ausdruck": "1,5,5",
+    "fehler": true
+  },
+  {
+    "ausdruck": "1.2345",
+    "fehler": true
+  },
+  {
+    "ausdruck": "5 %%",
+    "fehler": true
+  },
+  {
+    "ausdruck": "sin(1)",
+    "fehler": true
+  }
+]

@@ -1,0 +1,120 @@
+{
+  "stammdaten": {
+    "firma": "Muster Beispiel GmbH",
+    "sitz": "Musterstadt",
+    "plz": "12345",
+    "steuernummer": "123/456/78901",
+    "wirtschaftsjahr": {
+      "von": "2025-01-01",
+      "bis": "2025-12-31"
+    },
+    "ibans": [
+      "DE89 3704 0044 0532 0130 00",
+      "DE02 1203 0000 0000 2020 51"
+    ],
+    "adressen_in_dokumenten": {
+      "beschluss": "12345",
+      "anschreiben": "12345",
+      "bilanz": "12345"
+    }
+  },
+  "vorjahr": {
+    "verlustvortrag": "0.00",
+    "jahresergebnis": "-3000.00"
+  },
+  "eroeffnung": {
+    "verlustvortrag": "-3000.00"
+  },
+  "gesellschafterkonto": {
+    "kapital_start": "1000.00",
+    "zinsen_offen_vorjahr": "20.00",
+    "zinssatz": "0.05",
+    "zinsen_gebucht": "41.71",
+    "bilanzposten": "941.71"
+  },
+  "bank": {
+    "anfangssaldo": "8000.00",
+    "endsaldo": "5720.00"
+  },
+  "ust": {
+    "belege": [
+      {
+        "brutto": "119.00",
+        "satz": "0.19"
+      },
+      {
+        "brutto": "238.00",
+        "satz": "0.19"
+      },
+      {
+        "brutto": "59.50",
+        "satz": "0.19"
+      },
+      {
+        "brutto": "357.00",
+        "satz": "0.19"
+      },
+      {
+        "brutto": "29.75",
+        "satz": "0.19"
+      },
+      {
+        "brutto": "11.90",
+        "satz": "0.19"
+      }
+    ],
+    "vorsteuer_erklaert": "130.15"
+  },
+  "daten": {
+    "verkauf": "2025-11-18",
+    "vertrag_erstellt": "2025-11-19",
+    "ueberweisung": "2025-11-20",
+    "unterschrift": "2025-11-20"
+  },
+  "annahmen": [
+    {
+      "id": "A1",
+      "text": "Genussrechte als Verbindlichkeit ausgewiesen",
+      "status": "entschieden",
+      "auswirkung": "0.00"
+    },
+    {
+      "id": "A2",
+      "text": "Vorauszahlungssoll aus Bankeingaengen abgeleitet",
+      "status": "offen",
+      "auswirkung": "250.00"
+    }
+  ],
+  "guv": {
+    "ertraege": {
+      "zinsertrag": "41.71"
+    },
+    "aufwand": {
+      "rechtsberatung": "1800.00",
+      "abschreibung": "1000.00",
+      "bankgebuehren": "150.00",
+      "sonstiges": "450.00"
+    }
+  },
+  "bilanz": {
+    "aktiva": {
+      "software": "4000.00",
+      "forderung_gesellschafter": "941.71",
+      "bank": "5720.00",
+      "wertpapiere": "12000.00"
+    },
+    "passiva": {
+      "gezeichnetes_kapital": "25000.00",
+      "nicht_eingefordert": "-12500.00",
+      "kapitalruecklage": "100.00",
+      "verlustvortrag": "-3000.00",
+      "jahresergebnis": "-3358.29",
+      "verbindlichkeiten": "16420.00"
+    }
+  },
+  "dokumente": {
+    "e_bilanz": "-3358.29",
+    "beschluss": "-3358.29",
+    "excel": "-3358.29"
+  }
+}

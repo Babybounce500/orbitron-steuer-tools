@@ -1,0 +1,8 @@
+Datum;Gegenpartei;Verwendungszweck;Betrag;Kategorie
+2025-01-15;Beispiel Rechtsanwaelte;Honorar Januar;-1000.00;Rechtsberatung
+2025-02-10;Gesellschafter A;Rueckzahlung Darlehen;300.00;Gesellschafter-Darlehen
+2025-03-20;Beispiel Rechtsanwaelte;Honorar Maerz;-800.00;Rechtsberatung
+2025-06-30;Gesellschafter A;Darlehen zu 5 Prozent;-200.00;Gesellschafter-Darlehen
+2025-09-30;Musterbank;Kontofuehrung;-150.00;Bankgebuehren
+2025-11-05;Bueroservice Muster;Sonstiger Aufwand;-450.00;Sonstiges
+2025-12-31;Gesellschafter A;Zinsen Darlehen;20.00;Gesellschafter-Zins

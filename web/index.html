@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'">
+<title>Orbitron Zahlen vorbereiten</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-page="start">
+<div id="shell"></div>
+<main class="wrap">
+  <section class="hero">
+    <h1>Zahlen sicher vorbereiten</h1>
+    <p class="lead">Belege und Kontoauszüge anonymisieren, Beträge exakt prüfen und die Ergebnisse für Steuerberater oder ELSTER bereitlegen. Anonymisiert und gerechnet wird lokal in deinem Browser.</p>
+  </section>
+
+  <div class="grid3" style="margin-top:18px">
+    <a class="card tool" href="extractor.html" id="goExtractor">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></div>
+      <h2>Dokument anonymisieren</h2>
+      <p class="muted">PDF einlesen, Buchungen auf den Cent prüfen, Namen, Anschriften, IBAN und E-Mail durch Platzhalter ersetzen.</p>
+      <span class="btn primary">Starten</span>
+    </a>
+    <a class="card tool" href="agent.html" id="goAgent">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M5 9h14v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M9 13h0M15 13h0M9 17h6M2 13v3M22 13v3"/></svg></div>
+      <h2>Auswerten mit KI</h2>
+      <p class="muted">Buchungen einordnen, Auffälligkeiten finden, offene Fragen sammeln. Dokumente mit Belegstellen zusammenfassen. Online, nur nach Freigabe.</p>
+      <span class="btn primary">Auswerten</span>
+    </a>
+    <a class="card tool" href="rechner.html" id="goRechner">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0"/></svg></div>
+      <h2>Rechner mit Geldmodus</h2>
+      <p class="muted">Exakt rechnen ohne Rundungsfehler: Netto und USt, Zinsen, Abschreibung. Mit Protokoll zum Gegenprüfen.</p>
+      <span class="btn primary">Öffnen</span>
+    </a>
+  </div>
+
+  <section class="card">
+    <h2>So gehst du vor</h2>
+    <ol class="flow">
+      <li><div><strong>PDF in den Anonymisierer ziehen</strong><span class="muted">Das Programm liest den Text, prüft bei Kontoauszügen die Summe auf den Cent und ersetzt Namen und Kontodaten.</span></div></li>
+      <li><div><strong>Ergebnis prüfen und freigeben</strong><span class="muted">Ergänze eigene Namen und Aliasnamen, lies den anonymisierten Text einmal durch und setze den Haken.</span></div></li>
+      <li><div><strong>Auswerten lassen</strong><span class="muted">Mit „Mit KI auswerten“ an den Agenten übergeben oder den Text selbst in dein KI-Programm kopieren. Nur der anonymisierte Text verlässt den Browser, nie das Original.</span></div></li>
+      <li><div><strong>Antwort zurückübersetzen</strong><span class="muted">Die KI-Antwort mit den Platzhaltern einfügen. Die gespeicherte Zuordnung setzt die Klarnamen wieder ein.</span></div></li>
+      <li><div><strong>Zahlen gegenrechnen</strong><span class="muted">Wichtige Beträge im Geldrechner nachrechnen und das Protokoll als CSV zu den Unterlagen legen.</span></div></li>
+    </ol>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Datenschutz in drei Sätzen</h2>
+      <p class="muted">Anonymisieren und Rechner können nichts senden, das ist technisch gesperrt. Nur die Seite „Auswerten“ sendet, nach deiner Freigabe, den anonymisierten Text über deinen Proxy an Google. Pseudonymisierte Daten gelten rechtlich trotzdem als personenbezogen, die Zuordnung bleibt deshalb bei dir.</p>
+    </section>
+    <section class="card">
+      <h2>Wichtig zu wissen</h2>
+      <p class="muted">Das Werkzeug erkennt Namen mit Regeln, nicht perfekt. Eigene Aliasnamen musst du eintragen, und Verträge solltest du nach dem Anonymisieren selbst lesen. Es bereitet Zahlen vor und ersetzt keine Steuer- oder Rechtsberatung.</p>
+    </section>
+  </div>
+</main>
+<script src="shell.js"></script>
+</body>
+</html>

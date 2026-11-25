@@ -1,0 +1,16 @@
+# Echte Mandantendaten NIE ins Repo
+cases/
+*.pfx
+*.p12
+*.key
+.env
+.env.*
+# Erzeugt von run_all.py
+web/data/
+__pycache__/
+*.pyc
+node_modules/
+.replit-secrets
+
+runtime/
+web/dist/

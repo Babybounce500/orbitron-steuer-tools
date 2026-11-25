@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; worker-src blob:; img-src data: blob:; font-src data:">
+<title>Orbitron Rechner</title>
+<style>
+/* Orbitron: gemeinsames Design. Hell als Standard, dunkel automatisch oder per Schalter. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --surface-2: #eef2f7; --ink: #14202e; --muted: #526477; --line: #d8e0e9;
+  --accent: #0b6e8a; --accent-ink: #ffffff; --accent-soft: #e0f1f6; --accent-hover: #095a72;
+  --ok: #166a40; --ok-bg: #ddf3e6; --warn: #8a5600; --warn-bg: #fff0d1; --bad: #a3202a; --bad-bg: #fde6e8;
+  --shadow: 0 1px 2px rgba(20, 32, 46, .06), 0 4px 14px rgba(20, 32, 46, .05);
+  --radius: 14px; --radius-sm: 9px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d131a; --surface: #151d27; --surface-2: #1b2531; --ink: #e8eef5; --muted: #98a9bb; --line: #2a3745;
+    --accent: #4cc3e0; --accent-ink: #052029; --accent-soft: #123039; --accent-hover: #7ad6ec;
+    --ok: #62d99f; --ok-bg: #123325; --warn: #f4bb4f; --warn-bg: #3a2b0d; --bad: #ff808a; --bad-bg: #3b161b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d131a; --surface: #151d27; --surface-2: #1b2531; --ink: #e8eef5; --muted: #98a9bb; --line: #2a3745;
+  --accent: #4cc3e0; --accent-ink: #052029; --accent-soft: #123039; --accent-hover: #7ad6ec;
+  --ok: #62d99f; --ok-bg: #123325; --warn: #f4bb4f; --warn-bg: #3a2b0d; --bad: #ff808a; --bad-bg: #3b161b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* eigene display-Regeln dürfen hidden nicht aufheben */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font); min-height: 100vh; }
+h1 { font-size: clamp(1.6rem, 4vw, 2.1rem); line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.01em; }
+h2 { font-size: 1.1rem; margin: 0 0 .6rem; }
+h3 { font-size: 1rem; margin: 0 0 .4rem; }
+p { margin: 0 0 .8rem; }
+a { color: var(--accent); }
+small, .muted { color: var(--muted); }
+small { font-size: .85rem; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* Kopfzeile */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 1080px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 750; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; flex: none; }
+.nav { display: flex; gap: 4px; margin-left: 8px; flex: 1; }
+.nav a { padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: .95rem; white-space: nowrap; }
+.nav a:hover { background: var(--surface-2); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.badge { display: inline-flex; align-items: center; gap: 0; font-size: .8rem; color: var(--ok); background: var(--ok-bg); padding: 4px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; }
+@media (max-width: 720px) {
+  .top-in { gap: 8px; }
+  .nav { order: 3; flex-basis: 100%; margin: 0; overflow-x: auto; padding-bottom: 2px; }
+  .badge { margin-left: auto; }
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 22px 16px 120px; }
+.lead { color: var(--muted); font-size: 1.05rem; max-width: 70ch; }
+.foot { max-width: 1080px; margin: 0 auto; padding: 0 16px 40px; color: var(--muted); font-size: .85rem; }
+
+.badge.online { color: var(--warn); background: var(--warn-bg); }
+
+/* Karten und Raster */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* Schaltflächen */
+.btn { font: inherit; font-weight: 650; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 11px 18px; border-radius: var(--radius-sm); cursor: pointer; min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: .9rem; }
+
+/* Status-Pillen: immer mit Text, nie nur Farbe */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; font-size: .85rem; font-weight: 650; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.neu { background: var(--surface-2); color: var(--muted); }
+
+/* Schritte */
+.steps { list-style: none; display: flex; gap: 8px; padding: 0; margin: 18px 0; counter-reset: s; flex-wrap: wrap; }
+.steps li { counter-increment: s; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: .92rem; }
+.steps li::before { content: counter(s); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); font-size: .8rem; }
+.steps li.on { background: var(--accent-soft); color: var(--accent); }
+.steps li.on::before { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.steps li.done::before { content: "✓"; background: var(--ok); color: #fff; border-color: var(--ok); }
+
+/* Eingabefelder */
+label { font-weight: 600; font-size: .92rem; }
+input[type=text], textarea, input[type=number] { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; }
+textarea { font-family: var(--mono); font-size: .88rem; min-height: 130px; resize: vertical; }
+details { margin: 10px 0; }
+summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 6px 0; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
+.check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+
+/* Ablegefläche */
+.dropzone { border: 2px dashed var(--line); border-radius: var(--radius); padding: 30px 16px; text-align: center; cursor: pointer; background: var(--surface-2); transition: border-color .15s, background .15s; }
+.dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone strong { display: block; font-size: 1.1rem; }
+.dropzone svg { width: 34px; height: 34px; color: var(--accent); margin-bottom: 6px; }
+.status { min-height: 1.4em; margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
+.status.err { color: var(--bad); font-weight: 600; }
+
+/* Namens-Chips */
+.chipbox { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); min-height: 48px; align-items: center; }
+.chipbox input { border: 0; outline: 0; flex: 1; min-width: 160px; background: transparent; min-height: 34px; padding: 4px 6px; }
+.chipbox:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); padding: 3px 4px 3px 10px; border-radius: 999px; font-size: .9rem; font-weight: 600; }
+.chip button { border: 0; background: transparent; color: inherit; cursor: pointer; width: 24px; height: 24px; border-radius: 50%; font-size: 1rem; line-height: 1; }
+.chip button:hover { background: rgba(0, 0, 0, .1); }
+.chip.auto { background: var(--surface-2); color: var(--muted); padding-right: 10px; }
+
+/* Kennzahlen */
+.kpi h3 { color: var(--muted); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+.kpi .big { font-size: 1.9rem; font-weight: 750; line-height: 1.15; margin: 2px 0 8px; }
+
+/* Reiter */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -6px -6px 14px; overflow-x: auto; }
+.tabs button { font: inherit; font-weight: 650; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 10px 14px; cursor: pointer; white-space: nowrap; min-height: 44px; }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.panel[hidden] { display: none; }
+
+/* Anonymisierter Text, Tabellen */
+.out { white-space: pre-wrap; word-break: break-word; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; max-height: 420px; overflow: auto; font: .86rem/1.55 var(--mono); margin: 0; }
+.ph { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 0 4px; font-weight: 650; }
+.tablewrap { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { position: sticky; top: 0; background: var(--surface-2); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+td.r, th.r { text-align: right; font-family: var(--mono); white-space: nowrap; }
+td.neg { color: var(--bad); }
+.cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 16px; max-height: 260px; overflow: auto; margin: 8px 0 12px; }
+
+/* Freigabe-Leiste */
+.release { position: sticky; bottom: 12px; z-index: 10; border-color: var(--accent); }
+.release .msg { font-size: .9rem; color: var(--muted); margin: 6px 0 0; }
+
+/* Startseite */
+.hero { padding: 26px 0 8px; }
+.tool { display: block; text-decoration: none; color: inherit; transition: transform .12s, border-color .12s; }
+.tool:hover { transform: translateY(-2px); border-color: var(--accent); }
+.tool .ico { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 10px; }
+.tool .ico svg { width: 24px; height: 24px; }
+.tool h2 { margin-bottom: 4px; }
+.flow { display: grid; gap: 12px; counter-reset: f; padding: 0; list-style: none; }
+.flow li { counter-increment: f; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+.flow li::before { content: counter(f); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.flow strong { display: block; }
+
+/* Rechner */
+.rechner { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .rechner { grid-template-columns: minmax(0, 1fr); } }
+.rechner > *, .card, .display, .keys, .funcs, .grid2 > *, .grid3 > * { min-width: 0; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; margin: 6px 0 14px; }
+.seg button { font: inherit; font-weight: 650; border: 0; background: transparent; color: var(--muted); padding: 8px 20px; border-radius: 999px; cursor: pointer; min-height: 40px; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.display { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; }
+.display input { background: transparent; border: 0; padding: 4px 0; font: 1.25rem var(--mono); min-height: 40px; width: 100%; text-align: right; outline: 0; }
+.display:focus-within { outline: 3px solid var(--accent); }
+.res { font: 700 clamp(1.7rem, 7vw, 2.3rem) var(--mono); text-align: right; word-break: break-all; min-height: 1.3em; }
+.res.err { font: 600 .95rem var(--font); color: var(--bad); text-align: left; }
+.hint { min-height: 1.4em; font-size: .85rem; color: var(--muted); text-align: right; }
+.hint.warn { color: var(--warn); font-weight: 600; }
+.funcs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 4px; }
+.funcs button { flex: none; }
+.keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.keys button { font: 650 1.2rem var(--font); min-height: 56px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.keys button:hover { border-color: var(--accent); }
+.keys button:active { transform: scale(.97); }
+.keys .op { background: var(--surface-2); color: var(--accent); }
+.keys .clr { color: var(--bad); }
+.keys .eq { grid-column: 1 / -1; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.keys.sci { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
+.keys.sci button { min-height: 44px; font-size: 1rem; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow: auto; }
+.log li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.log li:hover { background: var(--surface-2); }
+.log .e { font-family: var(--mono); font-size: .88rem; color: var(--muted); word-break: break-all; }
+.log .v { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+.empty { color: var(--muted); padding: 18px 4px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media print { .top, .release, .keys, .funcs { display: none; } body { background: #fff; } }
+
+@media (max-width: 520px) { .badge .lang { display: none; } }
+
+@media (max-width: 700px) { .release { position: static; } }
+
+@media (max-width: 520px) { .nav { gap: 0; } .nav a { padding: 8px 9px; font-size: .86rem; } }
+
+</style>
+</head>
+<body data-page="rechner">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>Rechner</h1>
+  <p class="lead">Im Geldmodus rechnet das Programm exakt mit Brüchen und rundet nur am Ende kaufmännisch. Damit kannst du Zahlen aus Auszügen und Erklärungen gegenprüfen.</p>
+
+  <div class="seg" role="tablist" aria-label="Rechenmodus">
+    <button role="tab" id="m-geld" aria-selected="true" type="button">Geld</button>
+    <button role="tab" id="m-wiss" aria-selected="false" type="button">Wissenschaft</button>
+  </div>
+
+  <div class="rechner">
+    <section class="card" aria-label="Rechner">
+      <div class="display">
+        <input id="expr" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Ausdruck" placeholder="z. B. 1.234,56 × 0,19">
+        <div class="res" id="res" aria-live="polite">0,00</div>
+        <div class="hint" id="hint"></div>
+      </div>
+      <div class="funcs" id="funcs" aria-label="Funktionen"></div>
+      <div id="sci"></div>
+      <div class="keys" id="keys"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn small" id="copyRes" type="button">Ergebnis kopieren</button>
+        <label class="row" id="nkWrap" style="gap:6px;font-weight:500"><small>Nachkommastellen</small>
+          <select id="nk" style="font:inherit;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)"><option value="2" selected>2</option><option value="0">0</option><option value="3">3</option><option value="4">4</option></select>
+        </label>
+      </div>
+    </section>
+
+    <aside class="card" aria-label="Protokoll">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Protokoll</h2>
+        <span class="row"><button class="btn small" id="logCsv" type="button">CSV</button><button class="btn small ghost" id="logClear" type="button">Leeren</button></span></div>
+      <ol class="log" id="log"></ol>
+      <p class="empty" id="logEmpty">Noch keine Rechnung. Mit = oder Enter landet sie hier. Antippen übernimmt sie wieder.</p>
+    </aside>
+  </div>
+
+  <details class="card">
+    <summary>Hilfe zu den Funktionen</summary>
+    <table style="margin-top:8px">
+      <tr><td><code>netto(Brutto;Satz)</code></td><td>Nettobetrag aus dem Bruttobetrag, z. B. <code>netto(119;19)</code> = 100,00</td></tr>
+      <tr><td><code>ust(Brutto;Satz)</code></td><td>Enthaltene Umsatzsteuer, z. B. <code>ust(119;19)</code> = 19,00</td></tr>
+      <tr><td><code>zins(Kapital;Satz;Tage)</code></td><td>Zinsen nach act/365, z. B. <code>zins(1000;5;73)</code> = 10,00</td></tr>
+      <tr><td><code>afa(Anschaffung;Jahre;Monate)</code></td><td>Lineare Abschreibung für die genannten Monate</td></tr>
+      <tr><td><code>runde(Wert;Stellen)</code></td><td>Kaufmännisch runden (0,5 geht weg von null)</td></tr>
+      <tr><td><code>summe(a;b;c)</code>, <code>min</code>, <code>max</code>, <code>abs</code></td><td>Argumente werden mit Semikolon getrennt</td></tr>
+      <tr><td><code>100+10%</code></td><td>Prozent wie am Taschenrechner: Aufschlag auf 100 = 110</td></tr>
+    </table>
+    <p class="muted" style="margin-top:10px">Ein Punkt in einer Zahl ist der Tausendertrenner (<code>1.000</code> = eintausend). Als Dezimalzeichen gilt das Komma. Gegenprobe mit einem echten Taschenrechner: bei Abweichung die Eingabe prüfen.</p>
+  </details>
+</main>
+<div class="foot">Dieses Werkzeug bereitet Zahlen vor und ersetzt weder Steuerberatung noch Buchhaltungssoftware.</div>
+
+<script>
+'use strict';
+
+// Shared, dependency-free calculator engine for both browser UI and Node tests.
+class CalcError extends Error {}
+
+const FUNCS = new Map(Object.entries({
+  sqrt: Math.sqrt,
+  cbrt: Math.cbrt,
+  abs: Math.abs,
+  ln: Math.log,
+  log: Math.log10,
+  exp: Math.exp,
+  floor: Math.floor,
+  ceil: Math.ceil,
+  round: (x) => Math.sign(x) * Math.round(Math.abs(x)),
+  sinh: Math.sinh,
+  cosh: Math.cosh,
+  tanh: Math.tanh,
+}));
+const TRIG = new Map(Object.entries({ sin: Math.sin, cos: Math.cos, tan: Math.tan }));
+const INVTRIG = new Map(Object.entries({ asin: Math.asin, acos: Math.acos, atan: Math.atan }));
+const CONSTS = new Map(Object.entries({ pi: Math.PI, e: Math.E, tau: 2 * Math.PI }));
+const MAX_PRECISE_CENTS = 4e13;
+
+function tokenize(src) {
+  const s = String(src).replace(/[×·⋅]/g, '*').replace(/÷/g, '/').replace(/[−–—]/g, '-');
+  const tokens = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    const rest = s.slice(i);
+    let m;
+    if ((m = rest.match(/^\d{1,3}(?:\.\d{3})+(?:,\d+)?/)) && (m[0].includes(',') || m[0].split('.').length > 2)) {
+      tokens.push({ t: 'num', v: Number(m[0].replace(/\./g, '').replace(',', '.')) });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^\d{1,3}(?:,\d{3})+\.\d+/))) {
+      tokens.push({ t: 'num', v: Number(m[0].replace(/,/g, '')) });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^\d{1,3}(?:[   ]\d{3})+(?:[.,]\d+)?/))) {
+      tokens.push({ t: 'num', v: Number(m[0].replace(/[   ]/g, '').replace(',', '.')) });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:[eE][+-]?\d+)?/))) {
+      tokens.push({ t: 'num', v: Number(m[0].replace(',', '.')) });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^[a-zA-Z]+/))) {
+      tokens.push({ t: 'name', v: m[0].toLowerCase() });
+      i += m[0].length;
+      continue;
+    }
+    if (rest.startsWith('**')) { tokens.push({ t: '^' }); i += 2; continue; }
+    if ('+-*/^()!%²³√'.includes(c)) { tokens.push({ t: c }); i++; continue; }
+    throw new CalcError(`Ungültiges Zeichen: ${c}`);
+  }
+  return tokens;
+}
+
+function factorial(n) {
+  if (!Number.isInteger(n) || n < 0 || n > 170) throw new CalcError('Fakultät braucht eine ganze Zahl von 0 bis 170');
+  let result = 1;
+  for (let k = 2; k <= n; k++) result *= k;
+  return result;
+}
+
+function parse(tokens, opts) {
+  const deg = opts?.angle === 'deg';
+  let p = 0;
+  const peek = () => tokens[p];
+  const take = (type) => {
+    if (!tokens[p] || (type && tokens[p].t !== type)) {
+      throw new CalcError(type === ')' ? 'Klammer fehlt' : 'Unvollständiger Ausdruck');
+    }
+    return tokens[p++];
+  };
+  const finite = (value) => {
+    if (!Number.isFinite(value)) throw new CalcError('Ergebnis ist nicht definiert');
+    return value;
+  };
+  const snap = (value) => Math.abs(value) < 1e-15 ? 0 : value;
+
+  function additive() {
+    let left = term();
+    while (peek() && (peek().t === '+' || peek().t === '-')) {
+      const op = take().t;
+      const right = term();
+      const rv = right.pct ? left.v * right.v : right.v;
+      left = { v: op === '+' ? left.v + rv : left.v - rv, pct: false };
+    }
+    return left;
+  }
+  function term() {
+    let left = unary();
+    for (;;) {
+      const token = peek();
+      if (!token) break;
+      if (token.t === '*' || token.t === '/') {
+        take();
+        const right = unary();
+        if (token.t === '/') {
+          if (right.v === 0) throw new CalcError('Division durch null');
+          left = { v: left.v / right.v, pct: false };
+        } else left = { v: left.v * right.v, pct: false };
+        continue;
+      }
+      const prev = tokens[p - 1];
+      const implicit = token.t === 'name' || token.t === '(' || token.t === '√' ||
+        (token.t === 'num' && prev && [')', '!', '²', '³'].includes(prev.t));
+      if (implicit) { const right = unary(); left = { v: left.v * right.v, pct: false }; continue; }
+      break;
+    }
+    return left;
+  }
+  function unary() {
+    const token = peek();
+    if (token?.t === '-') { take(); return { v: -unary().v, pct: false }; }
+    if (token?.t === '+') { take(); return { v: unary().v, pct: false }; }
+    return power();
+  }
+  function power() {
+    const base = postfix();
+    if (peek()?.t === '^') {
+      take();
+      const exponent = unary();
+      return { v: finite(Math.pow(base.v, exponent.v)), pct: false };
+    }
+    return base;
+  }
+  function postfix() {
+    let node = primary();
+    for (;;) {
+      const token = peek();
+      if (token?.t === '!') { take(); node = { v: factorial(node.v), pct: false }; }
+      else if (token?.t === '²') { take(); node = { v: node.v * node.v, pct: false }; }
+      else if (token?.t === '³') { take(); node = { v: node.v * node.v * node.v, pct: false }; }
+      else if (token?.t === '%') { take(); node = { v: node.v / 100, pct: true }; }
+      else break;
+    }
+    return node;
+  }
+  function primary() {
+    const token = peek();
+    if (!token) throw new CalcError('Ausdruck ist leer');
+    if (token.t === 'num') { take(); return { v: token.v, pct: false }; }
+    if (token.t === '(') { take(); const value = additive(); take(')'); return { v: value.v, pct: false }; }
+    if (token.t === '√') { take(); const value = postfixNoSqrt(); return { v: finite(Math.sqrt(value.v)), pct: false }; }
+    if (token.t === 'name') {
+      take();
+      const name = token.v;
+      if (CONSTS.has(name) && !(peek()?.t === '(' && (FUNCS.has(name) || TRIG.has(name) || INVTRIG.has(name)))) {
+        return { v: CONSTS.get(name), pct: false };
+      }
+      const isFunction = FUNCS.has(name) || TRIG.has(name) || INVTRIG.has(name);
+      if (!isFunction) throw new CalcError(`Unbekannte Funktion: ${name}`);
+      if (peek()?.t !== '(') throw new CalcError(`${name} braucht Klammern, z. B. ${name}(2)`);
+      take('(');
+      const arg = additive().v;
+      take(')');
+      let value;
+      if (TRIG.has(name)) value = snap(TRIG.get(name)(deg ? arg * Math.PI / 180 : arg));
+      else if (INVTRIG.has(name)) {
+        value = INVTRIG.get(name)(arg);
+        if (deg) value *= 180 / Math.PI;
+      } else value = FUNCS.get(name)(arg);
+      return { v: finite(value), pct: false };
+    }
+    throw new CalcError('Unerwarteter Ausdruck');
+  }
+  function postfixNoSqrt() { return primary(); }
+
+  if (!tokens.length) throw new CalcError('Ausdruck ist leer');
+  const result = additive();
+  if (p !== tokens.length) throw new CalcError('Ausdruck konnte nicht vollständig gelesen werden');
+  return result.v;
+}
+
+function format(value) {
+  if (!Number.isFinite(value)) throw new CalcError('Ergebnis ist nicht endlich');
+  if (Object.is(value, -0)) value = 0;
+  const magnitude = Math.abs(value);
+  const roundedTo15Digits = Number(value.toPrecision(15));
+  const approximate = Number.isInteger(value) && magnitude > Number.MAX_SAFE_INTEGER ||
+    magnitude >= 1e10 || roundedTo15Digits !== value;
+  const text = Number.isInteger(value) && Math.abs(value) < 1e21
+    ? BigInt(value).toString()
+    : magnitude >= MAX_PRECISE_CENTS ? String(roundedTo15Digits)
+      : magnitude >= 1e10 ? String(value) : String(roundedTo15Digits);
+  return { text, approximate };
+}
+
+function calculate(expression, opts) {
+  try {
+    const value = parse(tokenize(expression), opts || {});
+    return { value, ...format(value) };
+  } catch (error) {
+    if (error instanceof RangeError) throw new CalcError('Ausdruck ist zu tief verschachtelt');
+    throw error;
+  }
+}
+
+const OrbitronCalculatorEngine = { calculate, tokenize, parse, format, CalcError };
+if (typeof module !== 'undefined' && module.exports) module.exports = OrbitronCalculatorEngine;
+if (typeof window !== 'undefined') window.OrbitronCalculatorEngine = OrbitronCalculatorEngine;
+
+</script>
+<script>
+window.ORBITRON_LINKS = {"start": "index.html", "extractor": "Orbitron-Extractor.html", "rechner": "Orbitron-Rechner.html", "agent": "Orbitron-Agent.html"};
+// Gemeinsame Kopfzeile und Farbschema-Schalter (klassisches Skript, läuft auch per Doppelklick).
+(function () {
+  var L = window.ORBITRON_LINKS || { start: "index.html", extractor: "extractor.html", rechner: "rechner.html", agent: "agent.html" };
+  var cur = document.body.getAttribute("data-page") || "";
+  var seiten = [["start", "Start"], ["extractor", "Anonymisieren"], ["agent", "Auswerten"], ["rechner", "Rechner"]];
+  var logo = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="5" fill="currentColor" style="color:var(--accent)"/><ellipse cx="16" cy="16" rx="13" ry="6" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-25 16 16)" style="color:var(--accent)"/></svg>';
+  var nav = seiten.map(function (s) { return '<a href="' + L[s[0]] + '"' + (s[0] === cur ? ' aria-current="page"' : "") + ">" + s[1] + "</a>"; }).join("");
+  var host = document.getElementById("shell");
+  if (!host) return;
+  host.innerHTML = '<header class="top"><div class="top-in"><a class="brand" href="' + L.start + '">' + logo + 'Orbitron</a><nav class="nav" aria-label="Hauptmenü">' + nav +
+    '</nav>' + (cur === "agent"
+      ? '<span class="badge online" title="Nach Freigabe wird Text über den Proxy an Google Gemini gesendet.">● Online<span class="lang">, sendet nach Freigabe</span></span>'
+      : '<span class="badge" title="Diese Seite lädt nichts aus dem Internet und sendet nichts ab.">● Offline<span class="lang">, nichts wird gesendet</span></span>') +
+    '<button class="theme" id="themeBtn" type="button" aria-label="Hell oder dunkel umschalten">◐</button></div></header>';
+  var root = document.documentElement;
+  try { var t = localStorage.getItem("orbitron-theme"); if (t) root.setAttribute("data-theme", t); } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var dunkel = root.getAttribute("data-theme") === "dark" || (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var neu = dunkel ? "light" : "dark";
+    root.setAttribute("data-theme", neu);
+    try { localStorage.setItem("orbitron-theme", neu); } catch (e) {}
+  });
+})();
+
+</script>
+<script>
+const G = (() => {
+// Orbitron Geldmodus: exakte Rechnung mit Brüchen aus BigInt. Keine Fließkommazahlen.
+// Eingabe deutsch: 1.234,56  ·  Argumente mit ;  ·  Rundung nur am Ende, kaufmännisch (Halbe weg von null).
+// ES-Modul (Browser und Node). Funktionen: runde, abs, min, max, summe, netto, ust, zins, afa.
+
+class GeldFehler extends Error { constructor(m) { super(m); this.name = "GeldFehler"; } }
+
+const gcd = (a, b) => { a = a < 0n ? -a : a; b = b < 0n ? -b : b; while (b) [a, b] = [b, a % b]; return a; };
+const R = (n, d = 1n) => {
+  if (d === 0n) throw new GeldFehler("Division durch null");
+  if (d < 0n) { n = -n; d = -d; }
+  const g = gcd(n, d) || 1n;
+  return { n: n / g, d: d / g };
+};
+const add = (a, b) => R(a.n * b.d + b.n * a.d, a.d * b.d);
+const sub = (a, b) => R(a.n * b.d - b.n * a.d, a.d * b.d);
+const mul = (a, b) => R(a.n * b.n, a.d * b.d);
+const div = (a, b) => { if (b.n === 0n) throw new GeldFehler("Division durch null"); return R(a.n * b.d, a.d * b.n); };
+const neg = (a) => R(-a.n, a.d);
+const cmp = (a, b) => { const x = a.n * b.d, y = b.n * a.d; return x < y ? -1 : x > y ? 1 : 0; };
+const p10 = (k) => 10n ** BigInt(k);
+
+function powInt(b, k) {
+  if (k < 0n) { if (b.n === 0n) throw new GeldFehler("0 hoch negativer Exponent"); return powInt(div(R(1n), b), -k); }
+  let res = R(1n), base = b, e = k;
+  while (e > 0n) { if (e & 1n) res = mul(res, base); base = mul(base, base); e >>= 1n; }
+  return res;
+}
+
+// ---------- Tokenizer ----------
+function tokenize(src, opt) {
+  const s = String(src).replace(/−/g, "-").replace(/[×·]/g, "*").replace(/[÷:]/g, "/");
+  const en = !!opt.englisch;
+  const numRe = en ? /^(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?/ : /^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?/;
+  const toks = []; let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    const rest = s.slice(i);
+    if (/\d/.test(c)) {
+      const m = numRe.exec(rest);
+      const ganz = m[1].replace(en ? /,/g : /\./g, ""), frac = m[2] || "";
+      toks.push({ t: "num", v: R(BigInt(ganz + frac), p10(frac.length)) });
+      if (opt._h && m[1].includes(en ? "," : ".") && !m[2]) opt._h.push(`${m[0]} wird als ${ganz} gelesen (${en ? "Komma" : "Punkt"} = Tausendertrenner)`);
+      i += m[0].length;
+      const nx = s[i] || "", nn = s[i + 1] || "";
+      if (!en && nx === "." && /\d/.test(nn)) throw new GeldFehler("Punkt ist Tausendertrenner (1.234,56). Dezimalkomma benutzen, z. B. 1,5");
+      if (en && nx === "," && /\d/.test(nn)) throw new GeldFehler("Komma ist Tausendertrenner (1,234.56). Dezimalpunkt benutzen");
+      if (/\d/.test(nx)) throw new GeldFehler("Ungültige Tausendergruppe in der Zahl");
+      continue;
+    }
+    if (/[a-zA-ZäöüÄÖÜ_]/.test(c)) { const m = /^[a-zA-ZäöüÄÖÜ_]+/.exec(rest); toks.push({ t: "id", v: m[0].toLowerCase() }); i += m[0].length; continue; }
+    if ("+-*/^()%;".includes(c)) { toks.push({ t: c }); i++; continue; }
+    if (c === ",") throw new GeldFehler("Komma nur als Dezimaltrenner innerhalb einer Zahl. Argumente mit ; trennen");
+    throw new GeldFehler(`Unbekanntes Zeichen "${c}" an Position ${i + 1}`);
+  }
+  return toks;
+}
+
+// ---------- Parser (Vorrang: Klammer, %, ^, Vorzeichen, * /, + -) ----------
+function parse(toks) {
+  let p = 0;
+  const peek = () => toks[p];
+  const eat = (t) => (toks[p] && toks[p].t === t ? toks[p++] : null);
+  function expr() {
+    let l = term();
+    for (;;) {
+      const t = peek();
+      if (!t || (t.t !== "+" && t.t !== "-")) break;
+      p++;
+      const r = term();
+      // Taschenrechner-Konvention: a + b%  =  a + a*b/100
+      l = r.k === "pct" ? { k: "addpct", op: t.t, l, p: r.e } : { k: "bin", op: t.t, l, r };
+    }
+    return l;
+  }
+  function term() {
+    let l = unary();
+    for (;;) {
+      const t = peek();
+      if (!t || (t.t !== "*" && t.t !== "/")) break;
+      p++;
+      l = { k: "bin", op: t.t, l, r: unary() };
+    }
+    return l;
+  }
+  function unary() {
+    const t = peek();
+    if (t && (t.t === "-" || t.t === "+")) { p++; const e = unary(); return t.t === "-" ? { k: "neg", e } : e; }
+    return power();
+  }
+  function power() { const b = postfix(); if (eat("^")) return { k: "pow", b, e: unary() }; return b; }
+  function postfix() { let e = primary(); if (eat("%")) e = { k: "pct", e }; return e; }
+  function primary() {
+    const t = toks[p++];
+    if (!t) throw new GeldFehler("Ausdruck unvollständig");
+    if (t.t === "num") return { k: "num", v: t.v };
+    if (t.t === "(") { const e = expr(); if (!eat(")")) throw new GeldFehler("Schließende Klammer ) fehlt"); return e; }
+    if (t.t === "id") {
+      if (!eat("(")) throw new GeldFehler(`Nach "${t.v}" fehlt eine öffnende Klammer`);
+      const args = [];
+      if (!eat(")")) for (;;) {
+        args.push(expr());
+        if (eat(")")) break;
+        if (!eat(";")) throw new GeldFehler("Argumente mit ; trennen, Klammer ) fehlt");
+      }
+      return { k: "fn", name: t.v, args };
+    }
+    throw new GeldFehler(`Unerwartetes Zeichen "${t.t}"`);
+  }
+  const e = expr();
+  if (p < toks.length) throw new GeldFehler(toks[p].t === "num" ? "Operator zwischen zwei Zahlen fehlt" : `Unerwartetes Zeichen "${toks[p].t}"`);
+  return e;
+}
+
+// ---------- Auswertung ----------
+function skaliert(r, k) { // kaufmännisch runden: Halbe weg von null; Ergebnis als ganze Zahl der Größe 10^-k
+  const num = r.n * p10(k), neg = num < 0n, a = neg ? -num : num;
+  const q = (2n * a + r.d) / (2n * r.d);
+  return neg ? -q : q;
+}
+const ganzArg = (r, name, lo, hi) => {
+  if (r.d !== 1n || r.n < BigInt(lo) || r.n > BigInt(hi)) throw new GeldFehler(`${name}: ganze Zahl zwischen ${lo} und ${hi} erwartet`);
+  return Number(r.n);
+};
+function fn(name, a) {
+  const arity = (lo, hi = lo) => { if (a.length < lo || a.length > hi) throw new GeldFehler(`${name}() erwartet ${lo === hi ? lo : lo + " bis " + hi} Argument(e)`); };
+  switch (name) {
+    case "runde": { arity(1, 2); const k = a.length === 2 ? ganzArg(a[1], "runde", 0, 8) : 2; return R(skaliert(a[0], k), p10(k)); }
+    case "abs": arity(1); return a[0].n < 0n ? neg(a[0]) : a[0];
+    case "min": arity(1, 99); return a.reduce((x, y) => (cmp(y, x) < 0 ? y : x));
+    case "max": arity(1, 99); return a.reduce((x, y) => (cmp(y, x) > 0 ? y : x));
+    case "summe": arity(1, 99); return a.reduce(add);
+    case "netto": arity(2); return div(a[0], add(R(1n), div(a[1], R(100n)))); // brutto / (1 + satz/100)
+    case "ust": arity(2); return sub(a[0], fn("netto", a)); // Brutto minus Netto
+    case "zins": arity(3); return div(mul(div(mul(a[0], a[1]), R(100n)), a[2]), R(365n)); // act/365
+    case "afa": arity(3); return div(mul(div(a[0], a[1]), a[2]), R(12n)); // AK / Jahre * Monate / 12
+    default: throw new GeldFehler(`Unbekannte Funktion "${name}"`);
+  }
+}
+function ev(n) {
+  switch (n.k) {
+    case "num": return n.v;
+    case "neg": return neg(ev(n.e));
+    case "pct": return div(ev(n.e), R(100n));
+    case "addpct": { const l = ev(n.l), d = mul(l, div(ev(n.p), R(100n))); return n.op === "+" ? add(l, d) : sub(l, d); }
+    case "bin": { const l = ev(n.l), r = ev(n.r); return n.op === "+" ? add(l, r) : n.op === "-" ? sub(l, r) : n.op === "*" ? mul(l, r) : div(l, r); }
+    case "pow": { const b = ev(n.b), e = ev(n.e); if (e.d !== 1n) throw new GeldFehler("Nur ganzzahlige Exponenten im Geldmodus"); if (e.n > 1000n || e.n < -1000n) throw new GeldFehler("Exponent zu groß"); return powInt(b, e.n); }
+    case "fn": return fn(n.name, n.args.map(ev));
+  }
+  throw new GeldFehler("Interner Fehler");
+}
+
+// ---------- Ausgabe ----------
+function formatSkaliert(s, k) {
+  const neg = s < 0n, a = (neg ? -s : s).toString().padStart(k + 1, "0");
+  const ganz = a.slice(0, a.length - k).replace(/\B(?=(\d{3})+(?!\d))/g, "."), frac = k ? "," + a.slice(a.length - k) : "";
+  return (neg ? "-" : "") + ganz + frac;
+}
+function exaktDezimal(r) { // Dezimaldarstellung, falls der Bruch abbricht (Nenner nur 2 und 5), sonst null
+  let d = r.d, a = 0, b = 0;
+  while (d % 2n === 0n) { d /= 2n; a++; }
+  while (d % 5n === 0n) { d /= 5n; b++; }
+  if (d !== 1n) return null;
+  const k = Math.max(a, b), s = r.n * p10(k) / r.d;
+  let t = formatSkaliert(s, k);
+  if (k) t = t.replace(/0+$/, "").replace(/,$/, "");
+  return t;
+}
+
+function bewerte(ausdruck, opt = {}) {
+  const k = opt.nachkomma ?? 2;
+  try {
+    const hinweise = [];
+    const r = ev(parse(tokenize(ausdruck, { ...opt, _h: hinweise })));
+    const s = skaliert(r, k);
+    return {
+      ok: true,
+      hinweise,
+      gerundet: formatSkaliert(s, k),
+      exakt: exaktDezimal(r),
+      bruch: r.d === 1n ? r.n.toString() : `${r.n}/${r.d}`,
+      istExakt: cmp(R(s, p10(k)), r) === 0,
+      skaliert: s, nachkomma: k,
+      beleg: `${String(ausdruck).trim()} = ${formatSkaliert(s, k)}${cmp(R(s, p10(k)), r) === 0 ? "" : " (gerundet)"}`,
+    };
+  } catch (e) {
+    if (e instanceof GeldFehler) return { ok: false, fehler: e.message };
+    throw e;
+  }
+}
+
+return { GeldFehler, formatSkaliert, bewerte };
+})();
+</script>
+<script>
+const $ = (id) => document.getElementById(id);
+const E = window.OrbitronCalculatorEngine;
+
+let mode = location.hash === "#wiss" ? "wiss" : "geld";
+let winkel = "deg";
+let frisch = false;   // gerade mit "=" ausgewertet
+let verlauf = [];     // {e, v, exakt}
+let letzter = null;   // letztes gültiges Ergebnis (Text)
+
+const FUNKTIONEN = [
+  ["netto", "netto(", "netto(Brutto;Satz) z. B. netto(119;19)"], ["USt", "ust(", "ust(Brutto;Satz) = enthaltene Umsatzsteuer"],
+  ["Zins", "zins(", "zins(Kapital;Satz;Tage), act/365"], ["AfA", "afa(", "afa(Anschaffungskosten;Jahre;Monate)"],
+  ["runde", "runde(", "runde(Wert;Stellen)"], ["Σ", "summe(", "summe(a;b;c)"], ["min", "min(", "min(a;b;…)"], ["max", "max(", "max(a;b;…)"], [";", ";", "Argumente trennt man mit ;"],
+];
+const SCI = [["sin", "sin("], ["cos", "cos("], ["tan", "tan("], ["ln", "ln("], ["log", "log("], ["√", "sqrt("], ["^", "^"], ["π", "pi"], ["e", "e"], ["!", "!"], ["abs", "abs("], ["exp", "exp("], ["x²", "^2"], ["∛", "cbrt("]];
+const TASTEN = [
+  ["C", "clr", "clr"], ["⌫", "back", "op"], ["(", "(", "op"], [")", ")", "op"],
+  ["7"], ["8"], ["9"], ["÷", "÷", "op"],
+  ["4"], ["5"], ["6"], ["×", "×", "op"],
+  ["1"], ["2"], ["3"], ["−", "−", "op"],
+  ["0"], [","], ["%", "%", "op"], ["+", "+", "op"],
+  ["=", "eq", "eq"],
+];
+
+const ein = $("expr");
+
+function einfuegen(text) {
+  if (frisch) {
+    if (/^[+×÷−%^!]/.test(text) && letzter != null) ein.value = letzter; else if (!/^[+×÷−%^!]/.test(text)) ein.value = "";
+    frisch = false; ein.setSelectionRange(ein.value.length, ein.value.length);
+  }
+  const a = ein.selectionStart ?? ein.value.length, b = ein.selectionEnd ?? a;
+  ein.value = ein.value.slice(0, a) + text + ein.value.slice(b);
+  const pos = a + text.length; ein.setSelectionRange(pos, pos);
+  live(false);
+}
+function loesche() { ein.value = ""; frisch = false; live(false); }
+function zurueck() {
+  const a = ein.selectionStart ?? ein.value.length, b = ein.selectionEnd ?? a;
+  if (a !== b) ein.value = ein.value.slice(0, a) + ein.value.slice(b);
+  else if (a > 0) { ein.value = ein.value.slice(0, a - 1) + ein.value.slice(a); ein.setSelectionRange(a - 1, a - 1); }
+  frisch = false; live(false);
+}
+
+function zeigeHinweis(text, warn) { const h = $("hint"); h.textContent = text || ""; h.className = "hint" + (warn ? " warn" : ""); }
+function zeigeErgebnis(text, fehler) { const r = $("res"); r.textContent = text; r.className = "res" + (fehler ? " err" : ""); }
+
+// Auswertung: liefert {v, exakt} oder null; mit melden=true wird ein Fehler sichtbar angezeigt
+function rechne(melden) {
+  const s = ein.value.trim();
+  if (!s) { zeigeErgebnis(mode === "geld" ? "0," + "0".repeat(+$("nk").value) : "0"); zeigeHinweis(""); return null; }
+  if (mode === "geld") {
+    const r = G.bewerte(s, { nachkomma: +$("nk").value });
+    if (!r.ok) { if (melden) zeigeErgebnis(r.fehler, true); return null; }
+    zeigeErgebnis(r.gerundet);
+    if (r.hinweise.length) zeigeHinweis("Achtung: " + r.hinweise.join("; "), true);
+    else zeigeHinweis(r.istExakt ? "exakt" : "gerundet, exakter Wert " + (r.exakt || r.bruch));
+    return { v: r.gerundet, exakt: r.istExakt };
+  }
+  try {
+    const r = E.calculate(s, { angle: winkel });
+    const t = r.text.replace(".", ",");
+    zeigeErgebnis(t);
+    zeigeHinweis(r.approximate ? "Näherung (Fließkomma). Für Geldbeträge den Geldmodus benutzen." : "", r.approximate);
+    return { v: t, exakt: !r.approximate };
+  } catch (e) { if (melden) zeigeErgebnis(e.message, true); return null; }
+}
+function live(melden) { const r = rechne(melden); if (r) letzter = r.v; return r; }
+
+function auswerten() {
+  const r = rechne(true);
+  if (!r) return;
+  letzter = r.v;
+  verlauf.unshift({ e: ein.value.trim(), v: r.v, exakt: r.exakt });
+  frisch = true; zeichneVerlauf();
+}
+
+function zeichneVerlauf() {
+  const ol = $("log"); ol.textContent = "";
+  verlauf.slice(0, 60).forEach((x) => {
+    const li = document.createElement("li"); li.tabIndex = 0; li.setAttribute("role", "button"); li.title = "Ausdruck übernehmen";
+    const e = document.createElement("span"); e.className = "e"; e.textContent = x.e;
+    const v = document.createElement("span"); v.className = "v"; v.textContent = (x.exakt ? "= " : "≈ ") + x.v;
+    li.append(e, v);
+    const nimm = () => { ein.value = x.e; frisch = false; live(false); };
+    li.onclick = nimm; li.onkeydown = (ev) => { if (ev.key === "Enter") nimm(); };
+    ol.append(li);
+  });
+  $("logEmpty").hidden = verlauf.length > 0;
+}
+
+function zeichneTasten() {
+  const k = $("keys"); k.textContent = "";
+  for (const [label, wert, klasse] of TASTEN) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (klasse) b.className = klasse;
+    b.onclick = () => (wert === "clr" ? loesche() : wert === "back" ? zurueck() : wert === "eq" ? auswerten() : einfuegen(wert || label));
+    k.append(b);
+  }
+  const f = $("funcs"); f.textContent = "";
+  const sci = $("sci"); sci.textContent = "";
+  if (mode === "geld") {
+    for (const [label, wert, hilfe] of FUNKTIONEN) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn small"; b.textContent = label;
+      b.onclick = () => { einfuegen(wert); zeigeHinweis("Syntax: " + hilfe); }; f.append(b);
+    }
+  } else {
+    const raster = document.createElement("div"); raster.className = "keys sci";
+    for (const [label, wert] of SCI) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "op"; b.textContent = label; b.onclick = () => einfuegen(wert); raster.append(b);
+    }
+    const w = document.createElement("button"); w.type = "button"; w.textContent = winkel.toUpperCase(); w.title = "Winkelmodus umschalten";
+    w.onclick = () => { winkel = winkel === "deg" ? "rad" : "deg"; w.textContent = winkel.toUpperCase(); live(false); };
+    raster.append(w); sci.append(raster);
+  }
+  $("nkWrap").hidden = mode !== "geld";
+}
+
+function setzeModus(m) {
+  mode = m; frisch = false;
+  $("m-geld").setAttribute("aria-selected", String(m === "geld")); $("m-wiss").setAttribute("aria-selected", String(m === "wiss"));
+  try { history.replaceState(null, "", m === "wiss" ? "#wiss" : "#geld"); } catch (e) {}
+  ein.placeholder = m === "geld" ? "z. B. 1.234,56 × 0,19" : "z. B. sin(30) + 2^10";
+  zeichneTasten(); live(false);
+}
+$("m-geld").onclick = () => setzeModus("geld");
+$("m-wiss").onclick = () => setzeModus("wiss");
+$("nk").onchange = () => live(false);
+
+ein.addEventListener("input", () => { frisch = false; live(false); });
+ein.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); auswerten(); }
+  else if (e.key === "Escape") { e.preventDefault(); loesche(); }
+});
+window.addEventListener("hashchange", () => setzeModus(location.hash === "#wiss" ? "wiss" : "geld"));
+
+$("copyRes").onclick = async () => {
+  const t = $("res").classList.contains("err") ? "" : $("res").textContent;
+  try { await navigator.clipboard.writeText(t); zeigeHinweis("Ergebnis kopiert."); } catch (e) { zeigeHinweis("Kopieren nicht möglich."); }
+};
+$("logClear").onclick = () => { verlauf = []; zeichneVerlauf(); };
+$("logCsv").onclick = () => {
+  if (!verlauf.length) return;
+  const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+  const csv = "Ausdruck;Ergebnis;Exakt\r\n" + [...verlauf].reverse().map((x) => [q(x.e), q(x.v), x.exakt ? "ja" : "nein"].join(";")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  a.download = "rechner-protokoll.csv"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+setzeModus(mode);
+zeichneVerlauf();
+
+</script>
+</body>
+</html>
