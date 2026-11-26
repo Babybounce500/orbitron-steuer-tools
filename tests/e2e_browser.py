@@ -162,6 +162,34 @@ window.ORBITRON_TRANSPORT = async () => { out.gesendet++; return { status: 500, 
 """
 
 
+ERECHNUNG_TEST = """
+var out = { fehlerJs: [] };
+window.addEventListener('error', (e) => { out.fehlerJs.push(String(e.message)); });
+document.addEventListener('securitypolicyviolation', (e) => { out.fehlerJs.push('CSP ' + e.violatedDirective); });
+const $ = (i) => document.getElementById(i);
+const setz = (sel, wert) => { const e = document.querySelector(sel); e.value = wert; e.dispatchEvent(new Event('input', { bubbles: true })); };
+(async () => {
+try {
+  window.confirm = () => true;
+  $('xmlSpeichern').click(); out.leerFehler = $('fehler').children.length; out.leerAnsicht = $('ansicht').hidden;
+  const v = { name: 'Beispiel Software GmbH', strasse: 'Musterweg 1', plz: '12345', ort: 'Beispielstadt', ustid: 'DE123456789', kontakt: 'Erika Beispiel', telefon: '+49 30 000000', email: 'rechnung@example.org', iban: 'DE89370400440532013000' };
+  for (const k in v) setz(`[data-v="${k}"]`, v[k]);
+  const k = { name: '<img src=x onerror=alert(1)> AG', strasse: 'Testallee 7', plz: '54321', ort: 'Musterhausen', email: 'eingang@example.com' };
+  for (const n in k) setz(`[data-k="${n}"]`, k[n]);
+  setz('[data-r="nummer"]', 'TEST-001'); setz('[data-r="referenz"]', 'KUNDE-42'); setz('[data-r="leistungVon"]', '2026-02-28');
+  setz('[data-p="text"]', 'Beratung'); setz('[data-p="menge"]', '10'); setz('[data-p="preis"]', '95,00');
+  out.summen = $('summen').textContent;
+  $('xmlSpeichern').click(); out.fehler = $('fehler').textContent; out.status = $('stat').textContent; out.xml = $('xmlOut').textContent;
+  out.blatt = $('blatt').textContent; out.bilder = $('blatt').querySelectorAll('img').length; out.druck = $('drucken').disabled;
+  setz('[data-p="preis"]', '96,00'); out.nachAenderung = $('ansicht').hidden && $('drucken').disabled;
+  $('posNeu').click(); out.positionen = $('positionen').children.length;
+  const s = document.querySelectorAll('[data-p="steuer"]')[1]; s.value = 'frei'; s.dispatchEvent(new Event('change', { bubbles: true })); out.befreiungSichtbar = !$('befreiungFeld').hidden;
+} catch (e) { out.jsFehler = String(e && e.stack || e); }
+const p = document.createElement('pre'); p.id = 'e2e'; p.textContent = JSON.stringify(out); document.body.appendChild(p);
+})();
+"""
+
+
 def lauf(browser, datei, test_js, warte=60):
     """Lädt eine Kopie der Einzeldatei per file:// im Browser, führt test_js aus und holt das Ergebnis (#e2e)
     über einen lokalen Mini-Server ab. Einzige Änderung an der Kopie: connect-src für diesen Server."""
@@ -240,7 +268,7 @@ def main():
 
     print("Startseite:")
     s = lauf(browser, DIST / "index.html", STARTSEITE_TEST)
-    pruefe(s["nav"] == ["Start", "Anonymisieren", "Auswerten", "Rechner"], "Menü: " + str(s["nav"]))
+    pruefe(s["nav"] == ["Start", "Anonymisieren", "Auswerten", "Rechner", "E-Rechnung"], "Menü: " + str(s["nav"]))
     pruefe("Orbitron-Extractor.html" in s["links"] and "Orbitron-Rechner.html" in s["links"], "Links auf die Einzeldateien")
     pruefe(not s["extern"], "keine externen Adressen " + str(s["extern"]))
 
@@ -307,6 +335,17 @@ def main():
     pruefe("fehler" not in g and "4 Buchungen" in g.get("quelle", ""), "Agent liest Screenshot selbst: " + g.get("quelle", g.get("fehler", g.get("status", "")))[:100])
     pruefe(not any(v in g["vorschau"] for v in ["Mustermann", "DE89", "Muster Handels", "Erika"]), "Vorschau ist anonymisiert")
     pruefe(g["gesendet"] == 0 and g["start"], "nichts gesendet, Freigabe nötig " + g["sperre"][:80])
+    print("E-Rechnung:")
+    x = lauf(browser, DIST / "Orbitron-ERechnung.html", ERECHNUNG_TEST)
+    pruefe("jsFehler" not in x and not x["fehlerJs"], "kein Skript- oder CSP-Fehler " + str(x.get("jsFehler", x["fehlerJs"][:3])))
+    pruefe(x["leerFehler"] > 8 and x["leerAnsicht"], f"leeres Formular zeigt {x['leerFehler']} Pflichtangaben")
+    pruefe("1.130,50" in x["summen"], "Summe 950,00 + 19 % = 1.130,50")
+    pruefe(not x["fehler"] and "Gespeichert" in x["status"], "gespeichert: " + x["status"] + x["fehler"])
+    pruefe('<cbc:PayableAmount currencyID="EUR">1130.50</cbc:PayableAmount>' in x["xml"] and "&lt;img" in x["xml"], "XML mit Betrag, Eingaben maskiert")
+    pruefe("Beratung" in x["blatt"] and x["bilder"] == 0 and x["druck"] is False, "lesbare Ansicht, kein HTML aus Eingaben")
+    pruefe("false" not in x["blatt"] and "undefined" not in x["blatt"] and "null" not in x["blatt"], "Ansicht ohne Platzhaltertext wie 'false'")
+    pruefe(x["nachAenderung"], "Änderung macht alte Ausgabe ungültig")
+    pruefe(x["positionen"] == 2 and x["befreiungSichtbar"], "zweite Position, Befreiungsgrund erscheint")
     print("BROWSER-TEST: alles grün")
     return 0
 

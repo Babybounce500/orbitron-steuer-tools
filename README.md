@@ -31,13 +31,14 @@ Alle Seiten teilen ein Design (`web/app.css`, Kopfzeile `web/shell.js`), sind f�
 - **Anonymisieren** (`web/extractor.html`, Logik in `extractor-core.js`, Oberfläche in `extractor-ui.js`): PDF ziehen, automatische Auswertung, Kennzahlen (Buchungen, Summencheck auf den Cent, Restrisiko), Namen als Chips ergänzen, anonymisierter Text mit markierten Platzhaltern, Namens-Kandidaten zum Anklicken, Freigabe, Kopieren/Speichern, Rückübersetzung der KI-Antwort (auch mit gespeicherter Zuordnung). Formate: Qonto, Revolut, deutsche Auszüge; andere Dokumente werden nur anonymisiert.
 - **Rechner** (`web/rechner.html`, `geldmodus.js`, `rechner-ui.js`, `calculator-engine.js`): Reiter Geld (exakte Bruchrechnung, netto, USt, Zins act/365, AfA, runde, Σ) und Wissenschaft. Live-Ergebnis, Protokoll mit CSV, Hinweis bei Tausenderpunkt.
 - **Auswerten** (`web/agent.html`, `agent-core.js`, `agent-ui.js`): KI-Agent mit Gemini 3.5 Flash-Lite über den eigenen Proxy. Online, nur nach Freigabe (Details unten).
+- **E-Rechnung** (`web/erechnung.html`, `erechnung-core.js`, `erechnung-ui.js`): XRechnung 3.0 (UBL) aus einem Formular, Beträge als BigInt, 19 %, 7 %, steuerfrei und Reverse Charge, lesbare Druckansicht, Firmenprofil als Datei. Offline. Nicht abgedeckt: ZUGFeRD, Gutschrift/Storno, Rabatte, Anzahlungen, andere Währungen. Prüfung am 26.11.2026 mit dem KoSIT-Validator 1.6.3 (Konfiguration XRechnung 3.0.2 vom 31.08.2026): sechs erfundene Beispielfälle aus `tests/erechnung-faelle.mjs` akzeptiert; nach Änderungen am XML erneut prüfen (`ERECHNUNG_AUSGABE=<Ordner> node --test tests/erechnung.test.mjs`).
 - Entwickler-Ansicht: `web/pruefbericht.html` (Prüfregeln, zwei Rechenwege).
 
 Grenzen: Namen werden mit Regeln erkannt (Rollen, Briefkopf, Rechtsform, Vornamenliste), nicht mit KI. Eigene Aliasnamen musst du eintragen, Verträge solltest du nach dem Anonymisieren selbst lesen. Scans ohne Textebene werden nicht gelesen.
 
 ## Für Kunden ohne Python und Node: `dist/`
-`dist/index.html` per Doppelklick öffnen (Edge/Chrome/Firefox). Drei Einzeldateien mit allem eingebettet, ohne Installation und ohne Internet (Sicherheitsrichtlinie sperrt Netzwerkzugriffe):
-`index.html`, `Orbitron-Extractor.html`, `Orbitron-Rechner.html`. (`Orbitron-Geldrechner.html` und `Orbitron-Taschenrechner.html` leiten auf den Rechner weiter.)
+`dist/index.html` per Doppelklick öffnen (Edge/Chrome/Firefox). Einzeldateien mit allem eingebettet, ohne Installation und ohne Internet (Sicherheitsrichtlinie sperrt Netzwerkzugriffe):
+`index.html`, `Orbitron-Extractor.html`, `Orbitron-Rechner.html`, `Orbitron-Agent.html`, `Orbitron-ERechnung.html`. (`Orbitron-Geldrechner.html` und `Orbitron-Taschenrechner.html` leiten auf den Rechner weiter.)
 Neu bauen: `python tools/build_dist.py`. Browser-Test mit echtem PDF: `python tests/e2e_browser.py`.
 Lokaler Leck-Test auf eigenen PDFs: `python tools/real_docs_check.py --wahrheit wahrheit.json --out bericht.json datei.pdf ...` (Begriffsliste bleibt lokal, nicht ins Repo).
 Python/Node für die Entwicklung liegen portabel in `runtime/` (nur lokal, nicht im ZIP, 125 MB); `start.cmd` nutzt sie automatisch.

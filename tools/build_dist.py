@@ -12,7 +12,7 @@ CSP = ("default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-
 # Seiten mit Texterkennung: ocr-paket.js aus demselben Ordner, WebAssembly, nur data:/blob: als Verbindungen (kein Netz)
 CSP_OCR = ("default-src 'none'; script-src 'self' file: 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'unsafe-inline'; "
            "worker-src blob:; img-src data: blob:; font-src data:; connect-src data: blob:")
-LINKS = {"start": "index.html", "extractor": "Orbitron-Extractor.html", "rechner": "Orbitron-Rechner.html", "agent": "Orbitron-Agent.html"}
+LINKS = {"start": "index.html", "extractor": "Orbitron-Extractor.html", "rechner": "Orbitron-Rechner.html", "agent": "Orbitron-Agent.html", "erechnung": "Orbitron-ERechnung.html"}
 PROXY = "https://glow-up-gemini.replit.app"  # einzige Adresse, mit der die Agent-Seite sprechen darf
 
 
@@ -44,7 +44,7 @@ def seite(name, ersetzungen=None):
     h = h.replace('<link rel="stylesheet" href="app.css">', "<style>\n" + lies(WEB / "app.css") + "\n</style>")
     links = "window.ORBITRON_LINKS = " + str(LINKS).replace("'", '"') + ";"
     h = h.replace('<script src="shell.js"></script>', skript(links + "\n" + lies(WEB / "shell.js")))
-    h = h.replace('href="extractor.html"', f'href="{LINKS["extractor"]}"').replace('href="rechner.html"', f'href="{LINKS["rechner"]}"').replace('href="agent.html"', f'href="{LINKS["agent"]}"')
+    h = h.replace('href="extractor.html"', f'href="{LINKS["extractor"]}"').replace('href="rechner.html"', f'href="{LINKS["rechner"]}"').replace('href="agent.html"', f'href="{LINKS["agent"]}"').replace('href="erechnung.html"', f'href="{LINKS["erechnung"]}"')
     return h
 
 
@@ -89,6 +89,12 @@ def agent():
                      module(("extractor-core.js", "K"), ("geldmodus.js", "G"), ("agent-core.js", "A"), ("leser.js", "L")) + "\n" + skript(mit_ui("agent-ui.js")))
 
 
+def erechnung():
+    h = seite("erechnung.html")
+    return h.replace('<script type="module" src="erechnung-ui.js"></script>',
+                     module(("erechnung-core.js", "E")) + "\n" + skript("const { EINHEITEN, STEUERFAELLE, RC_HINWEIS, rechne, pruefe, xrechnung, dateiname, deutsch, datumDe } = E;\n" + ohne_import(lies(WEB / "erechnung-ui.js"))))
+
+
 def start():
     return seite("index.html")
 
@@ -102,7 +108,7 @@ def main():
     DIST.mkdir(exist_ok=True)
     for alt in ("Orbitron-Geldrechner.html", "Orbitron-Taschenrechner.html"):
         (DIST / alt).unlink(missing_ok=True)
-    dateien = {"index.html": start, "Orbitron-Extractor.html": extractor, "Orbitron-Rechner.html": rechner, "Orbitron-Agent.html": agent}
+    dateien = {"index.html": start, "Orbitron-Extractor.html": extractor, "Orbitron-Rechner.html": rechner, "Orbitron-Agent.html": agent, "Orbitron-ERechnung.html": erechnung}
     for name, f in dateien.items():
         (DIST / name).write_text(f(), encoding="utf-8")
         print(name, (DIST / name).stat().st_size // 1024, "KB")

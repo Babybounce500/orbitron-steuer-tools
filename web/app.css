@@ -189,4 +189,4 @@ td.neg { color: var(--bad); }
 
 @media (max-width: 700px) { .release { position: static; } }
 
-@media (max-width: 520px) { .nav { gap: 0; } .nav a { padding: 8px 9px; font-size: .86rem; } }
+@media (max-width: 520px) { .nav { gap: 0; flex-wrap: wrap; } .nav a { padding: 8px 9px; font-size: .86rem; } }

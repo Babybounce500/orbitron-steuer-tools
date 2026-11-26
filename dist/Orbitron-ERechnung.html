@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; worker-src blob:; img-src data: blob:; font-src data:">
+<title>Orbitron E-Rechnung</title>
+<style>
+/* Orbitron: gemeinsames Design. Hell als Standard, dunkel automatisch oder per Schalter. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --surface-2: #eef2f7; --ink: #14202e; --muted: #526477; --line: #d8e0e9;
+  --accent: #0b6e8a; --accent-ink: #ffffff; --accent-soft: #e0f1f6; --accent-hover: #095a72;
+  --ok: #166a40; --ok-bg: #ddf3e6; --warn: #8a5600; --warn-bg: #fff0d1; --bad: #a3202a; --bad-bg: #fde6e8;
+  --shadow: 0 1px 2px rgba(20, 32, 46, .06), 0 4px 14px rgba(20, 32, 46, .05);
+  --radius: 14px; --radius-sm: 9px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d131a; --surface: #151d27; --surface-2: #1b2531; --ink: #e8eef5; --muted: #98a9bb; --line: #2a3745;
+    --accent: #4cc3e0; --accent-ink: #052029; --accent-soft: #123039; --accent-hover: #7ad6ec;
+    --ok: #62d99f; --ok-bg: #123325; --warn: #f4bb4f; --warn-bg: #3a2b0d; --bad: #ff808a; --bad-bg: #3b161b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d131a; --surface: #151d27; --surface-2: #1b2531; --ink: #e8eef5; --muted: #98a9bb; --line: #2a3745;
+  --accent: #4cc3e0; --accent-ink: #052029; --accent-soft: #123039; --accent-hover: #7ad6ec;
+  --ok: #62d99f; --ok-bg: #123325; --warn: #f4bb4f; --warn-bg: #3a2b0d; --bad: #ff808a; --bad-bg: #3b161b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .3);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* eigene display-Regeln dürfen hidden nicht aufheben */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font); min-height: 100vh; }
+h1 { font-size: clamp(1.6rem, 4vw, 2.1rem); line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.01em; }
+h2 { font-size: 1.1rem; margin: 0 0 .6rem; }
+h3 { font-size: 1rem; margin: 0 0 .4rem; }
+p { margin: 0 0 .8rem; }
+a { color: var(--accent); }
+small, .muted { color: var(--muted); }
+small { font-size: .85rem; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* Kopfzeile */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 1080px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 750; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; flex: none; }
+.nav { display: flex; gap: 4px; margin-left: 8px; flex: 1; }
+.nav a { padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: .95rem; white-space: nowrap; }
+.nav a:hover { background: var(--surface-2); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.badge { display: inline-flex; align-items: center; gap: 0; font-size: .8rem; color: var(--ok); background: var(--ok-bg); padding: 4px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; }
+@media (max-width: 720px) {
+  .top-in { gap: 8px; }
+  .nav { order: 3; flex-basis: 100%; margin: 0; overflow-x: auto; padding-bottom: 2px; }
+  .badge { margin-left: auto; }
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 22px 16px 120px; }
+.lead { color: var(--muted); font-size: 1.05rem; max-width: 70ch; }
+.foot { max-width: 1080px; margin: 0 auto; padding: 0 16px 40px; color: var(--muted); font-size: .85rem; }
+
+.badge.online { color: var(--warn); background: var(--warn-bg); }
+
+/* Karten und Raster */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 820px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* Schaltflächen */
+.btn { font: inherit; font-weight: 650; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 11px 18px; border-radius: var(--radius-sm); cursor: pointer; min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: .9rem; }
+
+/* Status-Pillen: immer mit Text, nie nur Farbe */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; font-size: .85rem; font-weight: 650; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.neu { background: var(--surface-2); color: var(--muted); }
+
+/* Schritte */
+.steps { list-style: none; display: flex; gap: 8px; padding: 0; margin: 18px 0; counter-reset: s; flex-wrap: wrap; }
+.steps li { counter-increment: s; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: .92rem; }
+.steps li::before { content: counter(s); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); font-size: .8rem; }
+.steps li.on { background: var(--accent-soft); color: var(--accent); }
+.steps li.on::before { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.steps li.done::before { content: "✓"; background: var(--ok); color: #fff; border-color: var(--ok); }
+
+/* Eingabefelder */
+label { font-weight: 600; font-size: .92rem; }
+input[type=text], textarea, input[type=number] { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; }
+textarea { font-family: var(--mono); font-size: .88rem; min-height: 130px; resize: vertical; }
+details { margin: 10px 0; }
+summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 6px 0; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
+.check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+
+/* Ablegefläche */
+.dropzone { border: 2px dashed var(--line); border-radius: var(--radius); padding: 30px 16px; text-align: center; cursor: pointer; background: var(--surface-2); transition: border-color .15s, background .15s; }
+.dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone strong { display: block; font-size: 1.1rem; }
+.dropzone svg { width: 34px; height: 34px; color: var(--accent); margin-bottom: 6px; }
+.status { min-height: 1.4em; margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
+.status.err { color: var(--bad); font-weight: 600; }
+
+/* Namens-Chips */
+.chipbox { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); min-height: 48px; align-items: center; }
+.chipbox input { border: 0; outline: 0; flex: 1; min-width: 160px; background: transparent; min-height: 34px; padding: 4px 6px; }
+.chipbox:focus-within { outline: 3px solid var(--accent); outline-offset: 1px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); padding: 3px 4px 3px 10px; border-radius: 999px; font-size: .9rem; font-weight: 600; }
+.chip button { border: 0; background: transparent; color: inherit; cursor: pointer; width: 24px; height: 24px; border-radius: 50%; font-size: 1rem; line-height: 1; }
+.chip button:hover { background: rgba(0, 0, 0, .1); }
+.chip.auto { background: var(--surface-2); color: var(--muted); padding-right: 10px; }
+
+/* Kennzahlen */
+.kpi h3 { color: var(--muted); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+.kpi .big { font-size: 1.9rem; font-weight: 750; line-height: 1.15; margin: 2px 0 8px; }
+
+/* Reiter */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -6px -6px 14px; overflow-x: auto; }
+.tabs button { font: inherit; font-weight: 650; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 10px 14px; cursor: pointer; white-space: nowrap; min-height: 44px; }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.panel[hidden] { display: none; }
+
+/* Anonymisierter Text, Tabellen */
+.out { white-space: pre-wrap; word-break: break-word; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; max-height: 420px; overflow: auto; font: .86rem/1.55 var(--mono); margin: 0; }
+.ph { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 0 4px; font-weight: 650; }
+.tablewrap { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { position: sticky; top: 0; background: var(--surface-2); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+td.r, th.r { text-align: right; font-family: var(--mono); white-space: nowrap; }
+td.neg { color: var(--bad); }
+.cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 16px; max-height: 260px; overflow: auto; margin: 8px 0 12px; }
+
+/* Freigabe-Leiste */
+.release { position: sticky; bottom: 12px; z-index: 10; border-color: var(--accent); }
+.release .msg { font-size: .9rem; color: var(--muted); margin: 6px 0 0; }
+
+/* Startseite */
+.hero { padding: 26px 0 8px; }
+.tool { display: block; text-decoration: none; color: inherit; transition: transform .12s, border-color .12s; }
+.tool:hover { transform: translateY(-2px); border-color: var(--accent); }
+.tool .ico { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 10px; }
+.tool .ico svg { width: 24px; height: 24px; }
+.tool h2 { margin-bottom: 4px; }
+.flow { display: grid; gap: 12px; counter-reset: f; padding: 0; list-style: none; }
+.flow li { counter-increment: f; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+.flow li::before { content: counter(f); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.flow strong { display: block; }
+
+/* Rechner */
+.rechner { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .rechner { grid-template-columns: minmax(0, 1fr); } }
+.rechner > *, .card, .display, .keys, .funcs, .grid2 > *, .grid3 > * { min-width: 0; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; margin: 6px 0 14px; }
+.seg button { font: inherit; font-weight: 650; border: 0; background: transparent; color: var(--muted); padding: 8px 20px; border-radius: 999px; cursor: pointer; min-height: 40px; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.display { background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; }
+.display input { background: transparent; border: 0; padding: 4px 0; font: 1.25rem var(--mono); min-height: 40px; width: 100%; text-align: right; outline: 0; }
+.display:focus-within { outline: 3px solid var(--accent); }
+.res { font: 700 clamp(1.7rem, 7vw, 2.3rem) var(--mono); text-align: right; word-break: break-all; min-height: 1.3em; }
+.res.err { font: 600 .95rem var(--font); color: var(--bad); text-align: left; }
+.hint { min-height: 1.4em; font-size: .85rem; color: var(--muted); text-align: right; }
+.hint.warn { color: var(--warn); font-weight: 600; }
+.funcs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 4px; }
+.funcs button { flex: none; }
+.keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.keys button { font: 650 1.2rem var(--font); min-height: 56px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.keys button:hover { border-color: var(--accent); }
+.keys button:active { transform: scale(.97); }
+.keys .op { background: var(--surface-2); color: var(--accent); }
+.keys .clr { color: var(--bad); }
+.keys .eq { grid-column: 1 / -1; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.keys.sci { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
+.keys.sci button { min-height: 44px; font-size: 1rem; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow: auto; }
+.log li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.log li:hover { background: var(--surface-2); }
+.log .e { font-family: var(--mono); font-size: .88rem; color: var(--muted); word-break: break-all; }
+.log .v { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+.empty { color: var(--muted); padding: 18px 4px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media print { .top, .release, .keys, .funcs { display: none; } body { background: #fff; } }
+
+@media (max-width: 520px) { .badge .lang { display: none; } }
+
+@media (max-width: 700px) { .release { position: static; } }
+
+@media (max-width: 520px) { .nav { gap: 0; flex-wrap: wrap; } .nav a { padding: 8px 9px; font-size: .86rem; } }
+
+</style>
+<style>
+.release { position: static; } /* langes Formular: Leiste darf nichts verdecken */
+.felder { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; }
+.felder label, .pos label { display: block; }
+.felder label span, .pos label span { display: block; margin-bottom: 3px; }
+.felder .breit { grid-column: 1 / -1; }
+input[type=date], input[type=email], select { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; }
+.pos { display: grid; grid-template-columns: minmax(0, 3fr) repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pos output { grid-column: 1 / -1; font-family: var(--mono); font-size: .88rem; color: var(--muted); text-align: right; }
+@media (max-width: 820px) { .pos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pos .text { grid-column: 1 / -1; } }
+.fehlerliste { margin: 8px 0; padding-left: 20px; color: var(--bad); font-weight: 600; }
+.summen { margin-left: auto; max-width: 340px; }
+.summen div { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); }
+.summen .gesamt { font-weight: 750; font-size: 1.15rem; border-top: 2px solid var(--ink); margin-top: 4px; padding-top: 4px; }
+#blatt { background: #fff; color: #111; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 22px; overflow-x: auto; }
+#blatt h3 { font-size: 1.25rem; }
+#blatt table { font-size: .9rem; }
+#blatt th { position: static; background: #eee; color: #333; }
+#blatt td, #blatt th { border-bottom-color: #ccc; }
+#blatt .zwei { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+#blatt .klein { font-size: .82rem; color: #444; }
+#blatt .summen .gesamt { border-top-color: #111; }
+@media print {
+  /* nur die Rechnung drucken; ausblenden statt unsichtbar machen, sonst entstehen leere Seiten */
+  #shell, .foot, main > :not(#ansicht), #ansicht > :not(#blatt) { display: none !important; }
+  body { background: #fff; min-height: 0; }
+  .wrap { max-width: none; margin: 0; padding: 0; }
+  #ansicht { border: 0; box-shadow: none; padding: 0; margin: 0; }
+  #blatt { border: 0; padding: 0; }
+}
+</style>
+</head>
+<body data-page="erechnung">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>E-Rechnung erstellen</h1>
+  <p class="lead">Formular ausfüllen und eine XRechnung als XML speichern. Alles bleibt in diesem Browser. Die XML-Datei ist die Rechnung; die Druckansicht dient nur zum Lesen.</p>
+
+  <details class="card" id="profilBox" open>
+    <summary>1. Deine Firmendaten (einmal ausfüllen, werden gespeichert)</summary>
+    <div class="felder" style="margin-top:10px">
+      <label class="breit"><span>Firmenname</span><input type="text" data-v="name" autocomplete="organization"></label>
+      <label><span>Straße und Nr.</span><input type="text" data-v="strasse"></label>
+      <label><span>PLZ</span><input type="text" data-v="plz"></label>
+      <label><span>Ort</span><input type="text" data-v="ort"></label>
+      <label><span>USt-IdNr.</span><input type="text" data-v="ustid" placeholder="DE123456789"></label>
+      <label><span>Steuernummer</span><input type="text" data-v="steuernummer"></label>
+      <label><span>Registernummer</span><input type="text" data-v="register" placeholder="HRB 12345"></label>
+      <label class="breit"><span>Rechtliche Angaben (Registergericht, Geschäftsführung)</span><input type="text" data-v="rechtsangaben"></label>
+      <label><span>Ansprechperson</span><input type="text" data-v="kontakt"></label>
+      <label><span>Telefon</span><input type="text" data-v="telefon"></label>
+      <label><span>E-Mail</span><input type="email" data-v="email"></label>
+      <label><span>IBAN</span><input type="text" data-v="iban"></label>
+      <label><span>BIC (freiwillig)</span><input type="text" data-v="bic"></label>
+      <label><span>Kontoinhaber (falls abweichend)</span><input type="text" data-v="kontoinhaber"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn small" id="profilSpeichern" type="button">Profil als Datei speichern</button>
+      <button class="btn small ghost" id="profilLaden" type="button">Profil aus Datei laden</button>
+      <input type="file" id="profilDatei" accept=".json" hidden>
+    </div>
+  </details>
+
+  <section class="card">
+    <h2>2. Kunde</h2>
+    <div class="felder">
+      <label class="breit"><span>Name oder Firma</span><input type="text" data-k="name"></label>
+      <label><span>Straße und Nr.</span><input type="text" data-k="strasse"></label>
+      <label><span>PLZ</span><input type="text" data-k="plz"></label>
+      <label><span>Ort</span><input type="text" data-k="ort"></label>
+      <label><span>Ländercode</span><input type="text" data-k="land" value="DE" maxlength="2"></label>
+      <label><span>E-Mail für Rechnungen</span><input type="email" data-k="email"></label>
+      <label><span>USt-IdNr. (bei Reverse Charge Pflicht)</span><input type="text" data-k="ustid"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Rechnung</h2>
+    <div class="felder">
+      <label><span>Rechnungsnummer</span><input type="text" data-r="nummer" placeholder="2026-001"></label>
+      <label><span>Käuferreferenz / Leitweg-ID</span><input type="text" data-r="referenz" placeholder="Bestell- oder Kundennummer"></label>
+      <label><span>Rechnungsdatum</span><input type="date" data-r="datum"></label>
+      <label><span>Leistungsdatum (oder Beginn)</span><input type="date" data-r="leistungVon"></label>
+      <label><span>Leistungsende (freiwillig)</span><input type="date" data-r="leistungBis"></label>
+      <label><span>Zahlbar bis</span><input type="date" data-r="faellig"></label>
+      <label class="breit"><span>Hinweistext (freiwillig)</span><input type="text" data-r="hinweis"></label>
+      <label class="breit" id="befreiungFeld" hidden><span>Grund der Steuerbefreiung</span><input type="text" data-r="befreiung" placeholder="z. B. Steuerfrei nach § 4 Nr. 11 UStG"></label>
+    </div>
+    <h3 style="margin-top:16px">Positionen (Preise netto)</h3>
+    <div id="positionen"></div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="posNeu" type="button">Position hinzufügen</button></div>
+    <div class="summen" id="summen" aria-live="polite"></div>
+  </section>
+
+  <section class="card release">
+    <div class="row">
+      <button class="btn primary" id="xmlSpeichern" type="button">XRechnung speichern (XML)</button>
+      <button class="btn" id="drucken" type="button" disabled>Druckansicht / PDF</button>
+      <button class="btn ghost" id="neu" type="button">Neue Rechnung</button>
+    </div>
+    <p class="status" id="stat" role="status"></p>
+    <ul class="fehlerliste" id="fehler"></ul>
+  </section>
+
+  <section class="card" id="ansicht" hidden>
+    <h2>Lesbare Ansicht</h2>
+    <div id="blatt"></div>
+    <details><summary>XML ansehen</summary><pre class="out" id="xmlOut"></pre></details>
+  </section>
+</main>
+<div class="foot">Prüfe jede neue Art von Rechnung vor dem ersten Versand mit einem Validator. Die Rechnungsnummer darf nur einmal vergeben werden; bewahre die XML-Datei unverändert auf. Keine Steuerberatung.</div>
+
+<script>
+window.ORBITRON_LINKS = {"start": "index.html", "extractor": "Orbitron-Extractor.html", "rechner": "Orbitron-Rechner.html", "agent": "Orbitron-Agent.html", "erechnung": "Orbitron-ERechnung.html"};
+// Gemeinsame Kopfzeile und Farbschema-Schalter (klassisches Skript, läuft auch per Doppelklick).
+(function () {
+  var L = window.ORBITRON_LINKS || { start: "index.html", extractor: "extractor.html", rechner: "rechner.html", agent: "agent.html", erechnung: "erechnung.html" };
+  var cur = document.body.getAttribute("data-page") || "";
+  var seiten = [["start", "Start"], ["extractor", "Anonymisieren"], ["agent", "Auswerten"], ["rechner", "Rechner"], ["erechnung", "E-Rechnung"]];
+  var logo = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="5" fill="currentColor" style="color:var(--accent)"/><ellipse cx="16" cy="16" rx="13" ry="6" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-25 16 16)" style="color:var(--accent)"/></svg>';
+  var nav = seiten.map(function (s) { return '<a href="' + L[s[0]] + '"' + (s[0] === cur ? ' aria-current="page"' : "") + ">" + s[1] + "</a>"; }).join("");
+  var host = document.getElementById("shell");
+  if (!host) return;
+  host.innerHTML = '<header class="top"><div class="top-in"><a class="brand" href="' + L.start + '">' + logo + 'Orbitron</a><nav class="nav" aria-label="Hauptmenü">' + nav +
+    '</nav>' + (cur === "agent"
+      ? '<span class="badge online" title="Nach Freigabe wird Text über den Proxy an Google Gemini gesendet.">● Online<span class="lang">, sendet nach Freigabe</span></span>'
+      : '<span class="badge" title="Diese Seite lädt nichts aus dem Internet und sendet nichts ab.">● Offline<span class="lang">, nichts wird gesendet</span></span>') +
+    '<button class="theme" id="themeBtn" type="button" aria-label="Hell oder dunkel umschalten">◐</button></div></header>';
+  var root = document.documentElement;
+  try { var t = localStorage.getItem("orbitron-theme"); if (t) root.setAttribute("data-theme", t); } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var dunkel = root.getAttribute("data-theme") === "dark" || (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var neu = dunkel ? "light" : "dark";
+    root.setAttribute("data-theme", neu);
+    try { localStorage.setItem("orbitron-theme", neu); } catch (e) {}
+  });
+})();
+
+</script>
+<script>
+const E = (() => {
+// Orbitron E-Rechnung: XRechnung 3.0 (UBL 2.1) erzeugen. Alle Beträge als BigInt, nie Fließkommazahlen.
+// ES-Modul (Browser und Node). Umfang: Rechnung (Typ 380) in EUR, Steuerfälle 19 %, 7 %, steuerfrei, Reverse Charge.
+
+const EINHEITEN = [["C62", "Stück"], ["HUR", "Stunde"], ["DAY", "Tag"], ["MON", "Monat"], ["LS", "pauschal"]];
+const STEUERFAELLE = {
+  s19: { text: "19 %", id: "S", satz: 19n },
+  s7: { text: "7 %", id: "S", satz: 7n },
+  frei: { text: "steuerfrei", id: "E", satz: 0n },
+  rc: { text: "Reverse Charge", id: "AE", satz: 0n },
+};
+const RC_HINWEIS = "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)";
+
+// ---------- Zahlen ----------
+// Deutsche Eingabe "1.234,56" -> BigInt mit fester Zahl von Nachkommastellen. Mehrdeutiges wird abgelehnt.
+function parseZahl(text, stellen) {
+  const s = String(text ?? "").replace(/[\s€]/g, "");
+  const m = /^(-?)(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?$/.exec(s);
+  if (!m) return null;
+  const nach = m[3] || "";
+  if (nach.length > stellen) return null;
+  const wert = BigInt(m[2].replace(/\./g, "") + nach.padEnd(stellen, "0"));
+  return m[1] ? -wert : wert;
+}
+// kaufmännisch: Halbe weg von null
+function teile(z, n) {
+  const neg = (z < 0n) !== (n < 0n);
+  const a = z < 0n ? -z : z, b = n < 0n ? -n : n;
+  const q = (a * 2n + b) / (b * 2n);
+  return neg ? -q : q;
+}
+function dezimal(wert, stellen, minStellen = stellen) {
+  const neg = wert < 0n;
+  let s = (neg ? -wert : wert).toString().padStart(stellen + 1, "0");
+  let ganz = s.slice(0, s.length - stellen), nach = s.slice(s.length - stellen);
+  while (nach.length > minStellen && nach.endsWith("0")) nach = nach.slice(0, -1);
+  return (neg ? "-" : "") + ganz + (nach ? "." + nach : "");
+}
+function deutsch(wert, stellen = 2, minStellen = stellen) {
+  const [g, n] = dezimal(wert, stellen, minStellen).split(".");
+  return g.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (n ? "," + n : "");
+}
+const datumDe = (iso) => (iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "");
+
+// ---------- Prüfungen ----------
+function ibanOk(iban) {
+  const s = String(iban || "").replace(/\s/g, "").toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(s) || (s.startsWith("DE") && s.length !== 22)) return false;
+  const num = (s.slice(4) + s.slice(0, 4)).replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
+  return BigInt(num) % 97n === 1n;
+}
+function datumOk(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return false;
+  const d = new Date(iso + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
+}
+const t = (v) => String(v ?? "").trim();
+const mailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t(v));
+const ustIdOk = (v) => /^[A-Z]{2}[A-Z0-9+*]{2,12}$/.test(t(v).replace(/\s/g, ""));
+
+// ---------- Rechnen ----------
+function rechne(r) {
+  const posten = (r.positionen || []).map((p, i) => {
+    const menge = parseZahl(p.menge, 3), preis = parseZahl(p.preis, 4), fall = STEUERFAELLE[p.steuer];
+    const netto = menge !== null && preis !== null ? teile(menge * preis, 100000n) : null; // 10^3 * 10^4 -> Cent
+    return { nr: i + 1, text: t(p.text), einheit: p.einheit || "C62", menge, preis, netto, fall, steuer: p.steuer };
+  });
+  const gruppen = new Map();
+  for (const p of posten) {
+    if (p.netto === null || !p.fall) continue;
+    const k = p.fall.id + "|" + p.fall.satz;
+    const g = gruppen.get(k) || { id: p.fall.id, satz: p.fall.satz, basis: 0n };
+    g.basis += p.netto;
+    gruppen.set(k, g);
+  }
+  const steuern = [...gruppen.values()].map((g) => ({ ...g, steuer: teile(g.basis * g.satz, 100n) }));
+  const netto = steuern.reduce((s, g) => s + g.basis, 0n);
+  const ust = steuern.reduce((s, g) => s + g.steuer, 0n);
+  return { posten, steuern, netto, ust, brutto: netto + ust };
+}
+
+function pruefe(r) {
+  const f = [];
+  const v = r.verkaeufer || {}, k = r.kaeufer || {};
+  const muss = (wert, name) => { if (!t(wert)) f.push(`${name} fehlt.`); };
+  for (const [w, n] of [[v.name, "Eigener Firmenname"], [v.strasse, "Eigene Straße"], [v.plz, "Eigene PLZ"], [v.ort, "Eigener Ort"], [v.kontakt, "Ansprechperson"], [v.telefon, "Eigene Telefonnummer"]]) muss(w, n);
+  if (!mailOk(v.email)) f.push("Eigene E-Mail-Adresse fehlt oder ist ungültig.");
+  if (!t(v.ustid) && !t(v.steuernummer)) f.push("USt-IdNr. oder Steuernummer ist nötig.");
+  if (t(v.ustid) && !ustIdOk(v.ustid)) f.push("Eigene USt-IdNr. hat nicht das richtige Format.");
+  if (!ibanOk(v.iban)) f.push("IBAN fehlt oder die Prüfziffer stimmt nicht.");
+  for (const [w, n] of [[k.name, "Name des Kunden"], [k.strasse, "Straße des Kunden"], [k.plz, "PLZ des Kunden"], [k.ort, "Ort des Kunden"]]) muss(w, n);
+  if (!mailOk(k.email)) f.push("E-Mail-Adresse des Kunden fehlt oder ist ungültig (elektronische Adresse, Pflicht in der XRechnung).");
+  if (!/^[A-Z]{2}$/.test(t(k.land) || "DE")) f.push("Ländercode des Kunden: zwei Großbuchstaben, z. B. DE.");
+  if (t(k.ustid) && !ustIdOk(k.ustid)) f.push("USt-IdNr. des Kunden hat nicht das richtige Format (z. B. DE123456789) – oder Feld leer lassen.");
+  muss(r.nummer, "Rechnungsnummer");
+  muss(r.referenz, "Käuferreferenz (Leitweg-ID, Bestellnummer oder Kundennummer)");
+  if (!datumOk(r.datum)) f.push("Rechnungsdatum fehlt.");
+  if (!datumOk(r.leistungVon)) f.push("Leistungsdatum fehlt.");
+  if (t(r.leistungBis) && (!datumOk(r.leistungBis) || r.leistungBis < r.leistungVon)) f.push("Ende des Leistungszeitraums liegt vor dem Beginn oder ist ungültig.");
+  if (!datumOk(r.faellig)) f.push("Fälligkeitsdatum fehlt.");
+  else if (datumOk(r.datum) && r.faellig < r.datum) f.push("Fälligkeit liegt vor dem Rechnungsdatum.");
+  const sum = rechne(r);
+  if (!sum.posten.length) f.push("Mindestens eine Position ist nötig.");
+  for (const p of sum.posten) {
+    if (!p.text) f.push(`Position ${p.nr}: Beschreibung fehlt.`);
+    if (p.menge === null || p.menge <= 0n) f.push(`Position ${p.nr}: Menge als Zahl größer 0, höchstens 3 Nachkommastellen (z. B. 1,5).`);
+    if (p.preis === null || p.preis < 0n) f.push(`Position ${p.nr}: Einzelpreis netto, höchstens 4 Nachkommastellen (z. B. 1.234,50).`);
+    if (!p.fall) f.push(`Position ${p.nr}: Steuerfall fehlt.`);
+  }
+  if (sum.posten.some((p) => p.steuer === "frei") && !t(r.befreiung)) f.push("Grund der Steuerbefreiung fehlt (z. B. § 4 Nr. 11 UStG oder § 19 UStG).");
+  if (sum.posten.some((p) => p.steuer === "rc")) {
+    if (!ustIdOk(v.ustid)) f.push("Reverse Charge braucht deine USt-IdNr.");
+    if (!ustIdOk(k.ustid)) f.push("Reverse Charge braucht die USt-IdNr. des Kunden.");
+  }
+  return f;
+}
+
+// ---------- XML ----------
+const esc = (s) => String(s).replace(/[^\t\n\r -퟿-�\u{10000}-\u{10FFFF}]/gu, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// el(Name, Inhalt, Attribute): leere Inhalte entfallen, Arrays sind Kindelemente
+function el(name, inhalt, attr = {}) {
+  const a = Object.entries(attr).map(([k, v]) => ` ${k}="${esc(v)}"`).join("");
+  if (Array.isArray(inhalt)) {
+    const kinder = inhalt.filter(Boolean).join("");
+    return kinder ? `<${name}${a}>${kinder}</${name}>` : "";
+  }
+  const s = t(inhalt);
+  return s ? `<${name}${a}>${esc(s)}</${name}>` : "";
+}
+const geld = (name, wert) => el(name, dezimal(wert, 2), { currencyID: "EUR" });
+const vat = () => el("cac:TaxScheme", [el("cbc:ID", "VAT")]);
+
+function partei(p, verkaeufer) {
+  const ustid = t(p.ustid).replace(/\s/g, "");
+  return el("cac:Party", [
+    el("cbc:EndpointID", p.email, { schemeID: "EM" }),
+    // BR-CO-26: ohne USt-IdNr. und Registernummer braucht der Verkäufer eine andere Kennung
+    verkaeufer && !ustid && !t(p.register) && el("cac:PartyIdentification", [el("cbc:ID", p.steuernummer)]),
+    el("cac:PostalAddress", [el("cbc:StreetName", p.strasse), el("cbc:CityName", p.ort), el("cbc:PostalZone", p.plz), el("cac:Country", [el("cbc:IdentificationCode", t(p.land) || "DE")])]),
+    ustid && el("cac:PartyTaxScheme", [el("cbc:CompanyID", ustid), vat()]),
+    verkaeufer && t(p.steuernummer) && el("cac:PartyTaxScheme", [el("cbc:CompanyID", p.steuernummer), el("cac:TaxScheme", [el("cbc:ID", "FC")])]),
+    el("cac:PartyLegalEntity", [el("cbc:RegistrationName", p.name), verkaeufer && el("cbc:CompanyID", p.register), verkaeufer && el("cbc:CompanyLegalForm", p.rechtsangaben)]),
+    verkaeufer && el("cac:Contact", [el("cbc:Name", p.kontakt), el("cbc:Telephone", p.telefon), el("cbc:ElectronicMail", p.email)]),
+  ]);
+}
+
+function kategorie(name, g, grund) {
+  return el(name, [
+    el("cbc:ID", g.id), el("cbc:Percent", g.satz.toString()),
+    grund && g.id === "AE" && el("cbc:TaxExemptionReasonCode", "VATEX-EU-AE"),
+    grund && g.id === "AE" && el("cbc:TaxExemptionReason", RC_HINWEIS),
+    grund && g.id === "E" && el("cbc:TaxExemptionReason", grund),
+    vat(),
+  ]);
+}
+
+function xrechnung(r) {
+  const fehler = pruefe(r);
+  if (fehler.length) throw new Error(fehler.join("\n"));
+  const v = r.verkaeufer, sum = rechne(r);
+  const zeitraum = t(r.leistungBis) && r.leistungBis !== r.leistungVon;
+  const inhalt = [
+    el("cbc:CustomizationID", "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0"),
+    el("cbc:ProfileID", "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"),
+    el("cbc:ID", r.nummer), el("cbc:IssueDate", r.datum), el("cbc:DueDate", r.faellig), el("cbc:InvoiceTypeCode", "380"),
+    el("cbc:Note", r.hinweis), el("cbc:DocumentCurrencyCode", "EUR"), el("cbc:BuyerReference", r.referenz),
+    zeitraum && el("cac:InvoicePeriod", [el("cbc:StartDate", r.leistungVon), el("cbc:EndDate", r.leistungBis)]),
+    el("cac:AccountingSupplierParty", [partei(v, true)]),
+    el("cac:AccountingCustomerParty", [partei(r.kaeufer, false)]),
+    !zeitraum && el("cac:Delivery", [el("cbc:ActualDeliveryDate", r.leistungVon)]),
+    el("cac:PaymentMeans", [
+      el("cbc:PaymentMeansCode", "58"), el("cbc:PaymentID", r.nummer),
+      el("cac:PayeeFinancialAccount", [el("cbc:ID", t(v.iban).replace(/\s/g, "").toUpperCase()), el("cbc:Name", v.kontoinhaber || v.name),
+        t(v.bic) && el("cac:FinancialInstitutionBranch", [el("cbc:ID", t(v.bic).toUpperCase())])]),
+    ]),
+    el("cac:PaymentTerms", [el("cbc:Note", `Zahlbar bis ${datumDe(r.faellig)} ohne Abzug.`)]),
+    el("cac:TaxTotal", [geld("cbc:TaxAmount", sum.ust), ...sum.steuern.map((g) => el("cac:TaxSubtotal", [
+      geld("cbc:TaxableAmount", g.basis), geld("cbc:TaxAmount", g.steuer), kategorie("cac:TaxCategory", g, g.id === "S" ? "" : r.befreiung || "x"),
+    ]))]),
+    el("cac:LegalMonetaryTotal", [geld("cbc:LineExtensionAmount", sum.netto), geld("cbc:TaxExclusiveAmount", sum.netto), geld("cbc:TaxInclusiveAmount", sum.brutto), geld("cbc:PayableAmount", sum.brutto)]),
+    ...sum.posten.map((p) => el("cac:InvoiceLine", [
+      el("cbc:ID", String(p.nr)), el("cbc:InvoicedQuantity", dezimal(p.menge, 3, 0), { unitCode: p.einheit }), geld("cbc:LineExtensionAmount", p.netto),
+      el("cac:Item", [el("cbc:Name", p.text), kategorie("cac:ClassifiedTaxCategory", p.fall, "")]),
+      el("cac:Price", [el("cbc:PriceAmount", dezimal(p.preis, 4, 2), { currencyID: "EUR" })]),
+    ])),
+  ].filter(Boolean).join("\n");
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" ' +
+    'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" ' +
+    'xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">\n' + inhalt + "\n</ubl:Invoice>\n";
+}
+
+function dateiname(r) {
+  return "Rechnung_" + (t(r.nummer).replace(/[^A-Za-z0-9ÄÖÜäöüß._-]+/g, "-").slice(0, 60) || "ohne-Nummer") + ".xml";
+}
+
+return { EINHEITEN, STEUERFAELLE, RC_HINWEIS, parseZahl, dezimal, deutsch, datumDe, ibanOk, rechne, pruefe, xrechnung, dateiname };
+})();
+</script>
+<script>
+const { EINHEITEN, STEUERFAELLE, RC_HINWEIS, rechne, pruefe, xrechnung, dateiname, deutsch, datumDe } = E;
+const $ = (i) => document.getElementById(i);
+const PROFIL = "orbitron-erechnung-profil", ENTWURF = "orbitron-erechnung-entwurf", NUMMERN = "orbitron-erechnung-nummern";
+const lese = (k, leer) => { try { return JSON.parse(localStorage.getItem(k)) ?? leer; } catch (e) { return leer; } };
+const merke = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ohne Speicher weiterarbeiten */ } };
+
+// Texte kommen aus Eingaben: nur über textContent ins Dokument
+function h(tag, attr = {}, ...kinder) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attr)) e.setAttribute(k, v);
+  for (const k of kinder) if (k !== null && k !== undefined && k !== false) e.append(k);
+  return e;
+}
+const felder = (art) => Array.from(document.querySelectorAll(`[data-${art}]`));
+const sammle = (art) => Object.fromEntries(felder(art).map((e) => [e.dataset[art], e.value]));
+const fuelle = (art, werte) => felder(art).forEach((e) => { const w = werte?.[e.dataset[art]]; if (typeof w === "string") e.value = w; });
+
+const heute = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const plusTage = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+function position(werte = {}) {
+  const wahl = (liste, wert, name) => {
+    const s = h("select", { "data-p": name }, ...liste.map(([v, t]) => h("option", { value: v }, t)));
+    s.value = wert; return s;
+  };
+  const feld = (titel, element, klasse) => h("label", klasse ? { class: klasse } : {}, h("span", {}, titel), element);
+  const eingabe = (name, wert, extra = {}) => { const i = h("input", { type: "text", "data-p": name, ...extra }); i.value = wert; return i; };
+  const weg = h("button", { type: "button", class: "btn small ghost", "aria-label": "Position entfernen" }, "✕");
+  const zeile = h("div", { class: "pos" },
+    feld("Beschreibung", eingabe("text", werte.text || ""), "text"),
+    feld("Menge", eingabe("menge", werte.menge || "1", { inputmode: "decimal" })),
+    feld("Einheit", wahl(EINHEITEN, werte.einheit || "C62", "einheit")),
+    feld("Einzelpreis €", eingabe("preis", werte.preis || "", { inputmode: "decimal" })),
+    feld("Steuer", wahl(Object.entries(STEUERFAELLE).map(([k, v]) => [k, v.text]), werte.steuer || "s19", "steuer")),
+    weg, h("output", {}));
+  weg.addEventListener("click", () => { zeile.remove(); if (!$("positionen").children.length) position(); aktualisiere(); });
+  $("positionen").append(zeile);
+}
+
+function rechnung() {
+  return {
+    ...sammle("r"), verkaeufer: sammle("v"), kaeufer: sammle("k"),
+    positionen: Array.from($("positionen").children).map((z) => Object.fromEntries(Array.from(z.querySelectorAll("[data-p]")).map((e) => [e.dataset.p, e.value]))),
+  };
+}
+
+function summenBlock(sum) {
+  const z = (a, b, k) => h("div", k ? { class: k } : {}, h("span", {}, a), h("span", {}, b + " €"));
+  return [z("Netto", deutsch(sum.netto)), ...sum.steuern.map((g) => z(g.id === "S" ? `USt ${g.satz} % auf ${deutsch(g.basis)}` : g.id === "AE" ? "Reverse Charge" : "Steuerfrei", deutsch(g.steuer))), z("Zu zahlen", deutsch(sum.brutto), "gesamt")];
+}
+
+let ausgegeben = "";
+function aktualisiere() {
+  const r = rechnung(), sum = rechne(r);
+  Array.from($("positionen").children).forEach((z, i) => { z.querySelector("output").textContent = sum.posten[i].netto === null ? "Menge oder Preis prüfen" : "Netto " + deutsch(sum.posten[i].netto) + " €"; });
+  $("summen").replaceChildren(...summenBlock(sum));
+  $("befreiungFeld").hidden = !r.positionen.some((p) => p.steuer === "frei");
+  // geänderte Eingaben machen die letzte Ausgabe ungültig
+  if (ausgegeben && JSON.stringify(r) !== ausgegeben) { ausgegeben = ""; $("ansicht").hidden = true; $("drucken").disabled = true; $("stat").textContent = "Eingaben geändert. Bitte neu speichern."; }
+  $("fehler").replaceChildren();
+  merke(PROFIL, r.verkaeufer);
+  const { verkaeufer, ...rest } = r;
+  merke(ENTWURF, rest);
+}
+
+function blatt(r) {
+  const v = r.verkaeufer, k = r.kaeufer, sum = rechne(r);
+  const zeilen = (...l) => h("div", {}, ...l.filter(Boolean).map((x) => h("div", {}, x)));
+  const einheit = Object.fromEntries(EINHEITEN);
+  const zeitraum = r.leistungBis && r.leistungBis !== r.leistungVon ? `Leistungszeitraum ${datumDe(r.leistungVon)} bis ${datumDe(r.leistungBis)}` : `Leistungsdatum ${datumDe(r.leistungVon)}`;
+  const tab = h("table", {},
+    h("thead", {}, h("tr", {}, ...["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Steuer", "Netto"].map((x, i) => h("th", i > 1 && i !== 4 ? { class: "r" } : {}, x)))),
+    h("tbody", {}, ...sum.posten.map((p) => h("tr", {}, h("td", {}, String(p.nr)), h("td", {}, p.text), h("td", { class: "r" }, deutsch(p.menge, 3, 0) + " " + einheit[p.einheit]),
+      h("td", { class: "r" }, deutsch(p.preis, 4, 2) + " €"), h("td", {}, p.fall.text), h("td", { class: "r" }, deutsch(p.netto) + " €")))));
+  const teile = [
+    h("div", { class: "zwei" }, zeilen(v.name, v.strasse, `${v.plz} ${v.ort}`), zeilen(`Rechnung ${r.nummer}`, `Datum ${datumDe(r.datum)}`, zeitraum, `Referenz ${r.referenz}`)),
+    h("div", { class: "zwei" }, zeilen(k.name, k.strasse, `${k.plz} ${k.ort}`, k.land !== "DE" && k.land, k.ustid && `USt-IdNr. ${k.ustid}`)),
+    h("h3", {}, "Rechnung"),
+    r.hinweis && h("p", {}, r.hinweis),
+    tab,
+    h("div", { class: "summen" }, ...summenBlock(sum)),
+    sum.steuern.some((g) => g.id === "AE") && h("p", {}, RC_HINWEIS),
+    sum.steuern.some((g) => g.id === "E") && h("p", {}, r.befreiung),
+    h("p", {}, `Zahlbar bis ${datumDe(r.faellig)} ohne Abzug auf IBAN ${v.iban}${v.bic ? ", BIC " + v.bic : ""}. Verwendungszweck: ${r.nummer}.`),
+    h("p", { class: "klein" }, [v.kontakt, v.telefon, v.email, v.register, v.rechtsangaben, v.ustid && "USt-IdNr. " + v.ustid, v.steuernummer && "Steuernummer " + v.steuernummer].filter(Boolean).join(" · ")),
+  ];
+  // leere Bedingungen nicht als Text "false" ins Dokument schreiben
+  $("blatt").replaceChildren(...teile.filter(Boolean));
+}
+
+function lade(name, inhalt, typ) {
+  const a = h("a", { download: name });
+  a.href = URL.createObjectURL(new Blob([inhalt], { type: typ }));
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$("xmlSpeichern").addEventListener("click", () => {
+  const r = rechnung(), fehler = pruefe(r);
+  $("fehler").replaceChildren(...fehler.map((f) => h("li", {}, f)));
+  if (fehler.length) { $("stat").textContent = `Noch ${fehler.length} Punkt(e) offen:`; $("ansicht").hidden = true; $("drucken").disabled = true; return; }
+  const xml = xrechnung(r);
+  // dieselbe Nummer mit anderem Inhalt nur nach Rückfrage
+  const nummern = lese(NUMMERN, {});
+  const nr = r.nummer.trim();
+  if (nummern[nr] && nummern[nr] !== xml && !window.confirm(`Die Rechnungsnummer ${nr} wurde in diesem Browser schon mit anderem Inhalt gespeichert. Trotzdem speichern? Nur sinnvoll, wenn die alte Datei nicht verschickt wurde.`)) {
+    $("stat").textContent = "Abgebrochen. Vergib eine neue Rechnungsnummer."; return;
+  }
+  nummern[nr] = xml; merke(NUMMERN, nummern);
+  $("xmlOut").textContent = xml;
+  blatt(r);
+  $("ansicht").hidden = false; $("drucken").disabled = false;
+  ausgegeben = JSON.stringify(r);
+  lade(dateiname(r), xml, "application/xml");
+  $("stat").textContent = `Gespeichert: ${dateiname(r)}. Die XML-Datei an den Kunden senden und aufbewahren.`;
+});
+$("drucken").addEventListener("click", () => window.print());
+$("posNeu").addEventListener("click", () => { position(); aktualisiere(); });
+$("neu").addEventListener("click", () => {
+  if (!window.confirm("Kunde und Rechnung leeren? Deine Firmendaten bleiben.")) return;
+  felder("k").forEach((e) => { e.value = e.dataset.k === "land" ? "DE" : ""; });
+  felder("r").forEach((e) => { e.value = ""; });
+  $("positionen").replaceChildren(); position(); standard(); ausgegeben = ""; $("ansicht").hidden = true; $("drucken").disabled = true; $("stat").textContent = ""; aktualisiere();
+});
+$("profilSpeichern").addEventListener("click", () => lade("orbitron-firmenprofil.json", JSON.stringify(sammle("v"), null, 1), "application/json"));
+$("profilLaden").addEventListener("click", () => $("profilDatei").click());
+$("profilDatei").addEventListener("change", async (ev) => {
+  const datei = ev.target.files[0];
+  if (!datei) return;
+  try {
+    const p = JSON.parse(await datei.text());
+    if (!p || typeof p !== "object" || typeof p.name !== "string") throw new Error("kein Profil");
+    felder("v").forEach((e) => { e.value = typeof p[e.dataset.v] === "string" ? p[e.dataset.v] : ""; });
+    aktualisiere(); $("stat").textContent = "Firmenprofil geladen.";
+  } catch (e) { $("stat").textContent = "Die Datei ist kein gültiges Firmenprofil."; }
+  ev.target.value = "";
+});
+
+function standard() {
+  const d = document.querySelector('[data-r="datum"]'), f = document.querySelector('[data-r="faellig"]');
+  if (!d.value) d.value = heute();
+  if (!f.value) f.value = plusTage(d.value, 14);
+}
+
+fuelle("v", lese(PROFIL, {}));
+const entwurf = lese(ENTWURF, null);
+if (entwurf) { fuelle("k", entwurf.kaeufer); fuelle("r", entwurf); }
+(entwurf?.positionen?.length ? entwurf.positionen : [{}]).forEach(position);
+standard();
+if (document.querySelector('[data-v="name"]').value) $("profilBox").open = false;
+document.querySelector("main").addEventListener("input", aktualisiere);
+document.querySelector("main").addEventListener("change", aktualisiere);
+aktualisiere();
+
+</script>
+</body>
+</html>

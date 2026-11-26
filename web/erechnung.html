@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'">
+<title>Orbitron E-Rechnung</title>
+<link rel="stylesheet" href="app.css">
+<style>
+.release { position: static; } /* langes Formular: Leiste darf nichts verdecken */
+.felder { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; }
+.felder label, .pos label { display: block; }
+.felder label span, .pos label span { display: block; margin-bottom: 3px; }
+.felder .breit { grid-column: 1 / -1; }
+input[type=date], input[type=email], select { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; min-height: 44px; }
+.pos { display: grid; grid-template-columns: minmax(0, 3fr) repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pos output { grid-column: 1 / -1; font-family: var(--mono); font-size: .88rem; color: var(--muted); text-align: right; }
+@media (max-width: 820px) { .pos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pos .text { grid-column: 1 / -1; } }
+.fehlerliste { margin: 8px 0; padding-left: 20px; color: var(--bad); font-weight: 600; }
+.summen { margin-left: auto; max-width: 340px; }
+.summen div { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); }
+.summen .gesamt { font-weight: 750; font-size: 1.15rem; border-top: 2px solid var(--ink); margin-top: 4px; padding-top: 4px; }
+#blatt { background: #fff; color: #111; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 22px; overflow-x: auto; }
+#blatt h3 { font-size: 1.25rem; }
+#blatt table { font-size: .9rem; }
+#blatt th { position: static; background: #eee; color: #333; }
+#blatt td, #blatt th { border-bottom-color: #ccc; }
+#blatt .zwei { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+#blatt .klein { font-size: .82rem; color: #444; }
+#blatt .summen .gesamt { border-top-color: #111; }
+@media print {
+  /* nur die Rechnung drucken; ausblenden statt unsichtbar machen, sonst entstehen leere Seiten */
+  #shell, .foot, main > :not(#ansicht), #ansicht > :not(#blatt) { display: none !important; }
+  body { background: #fff; min-height: 0; }
+  .wrap { max-width: none; margin: 0; padding: 0; }
+  #ansicht { border: 0; box-shadow: none; padding: 0; margin: 0; }
+  #blatt { border: 0; padding: 0; }
+}
+</style>
+</head>
+<body data-page="erechnung">
+<div id="shell"></div>
+<main class="wrap">
+  <h1>E-Rechnung erstellen</h1>
+  <p class="lead">Formular ausfüllen und eine XRechnung als XML speichern. Alles bleibt in diesem Browser. Die XML-Datei ist die Rechnung; die Druckansicht dient nur zum Lesen.</p>
+
+  <details class="card" id="profilBox" open>
+    <summary>1. Deine Firmendaten (einmal ausfüllen, werden gespeichert)</summary>
+    <div class="felder" style="margin-top:10px">
+      <label class="breit"><span>Firmenname</span><input type="text" data-v="name" autocomplete="organization"></label>
+      <label><span>Straße und Nr.</span><input type="text" data-v="strasse"></label>
+      <label><span>PLZ</span><input type="text" data-v="plz"></label>
+      <label><span>Ort</span><input type="text" data-v="ort"></label>
+      <label><span>USt-IdNr.</span><input type="text" data-v="ustid" placeholder="DE123456789"></label>
+      <label><span>Steuernummer</span><input type="text" data-v="steuernummer"></label>
+      <label><span>Registernummer</span><input type="text" data-v="register" placeholder="HRB 12345"></label>
+      <label class="breit"><span>Rechtliche Angaben (Registergericht, Geschäftsführung)</span><input type="text" data-v="rechtsangaben"></label>
+      <label><span>Ansprechperson</span><input type="text" data-v="kontakt"></label>
+      <label><span>Telefon</span><input type="text" data-v="telefon"></label>
+      <label><span>E-Mail</span><input type="email" data-v="email"></label>
+      <label><span>IBAN</span><input type="text" data-v="iban"></label>
+      <label><span>BIC (freiwillig)</span><input type="text" data-v="bic"></label>
+      <label><span>Kontoinhaber (falls abweichend)</span><input type="text" data-v="kontoinhaber"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn small" id="profilSpeichern" type="button">Profil als Datei speichern</button>
+      <button class="btn small ghost" id="profilLaden" type="button">Profil aus Datei laden</button>
+      <input type="file" id="profilDatei" accept=".json" hidden>
+    </div>
+  </details>
+
+  <section class="card">
+    <h2>2. Kunde</h2>
+    <div class="felder">
+      <label class="breit"><span>Name oder Firma</span><input type="text" data-k="name"></label>
+      <label><span>Straße und Nr.</span><input type="text" data-k="strasse"></label>
+      <label><span>PLZ</span><input type="text" data-k="plz"></label>
+      <label><span>Ort</span><input type="text" data-k="ort"></label>
+      <label><span>Ländercode</span><input type="text" data-k="land" value="DE" maxlength="2"></label>
+      <label><span>E-Mail für Rechnungen</span><input type="email" data-k="email"></label>
+      <label><span>USt-IdNr. (bei Reverse Charge Pflicht)</span><input type="text" data-k="ustid"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Rechnung</h2>
+    <div class="felder">
+      <label><span>Rechnungsnummer</span><input type="text" data-r="nummer" placeholder="2026-001"></label>
+      <label><span>Käuferreferenz / Leitweg-ID</span><input type="text" data-r="referenz" placeholder="Bestell- oder Kundennummer"></label>
+      <label><span>Rechnungsdatum</span><input type="date" data-r="datum"></label>
+      <label><span>Leistungsdatum (oder Beginn)</span><input type="date" data-r="leistungVon"></label>
+      <label><span>Leistungsende (freiwillig)</span><input type="date" data-r="leistungBis"></label>
+      <label><span>Zahlbar bis</span><input type="date" data-r="faellig"></label>
+      <label class="breit"><span>Hinweistext (freiwillig)</span><input type="text" data-r="hinweis"></label>
+      <label class="breit" id="befreiungFeld" hidden><span>Grund der Steuerbefreiung</span><input type="text" data-r="befreiung" placeholder="z. B. Steuerfrei nach § 4 Nr. 11 UStG"></label>
+    </div>
+    <h3 style="margin-top:16px">Positionen (Preise netto)</h3>
+    <div id="positionen"></div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="posNeu" type="button">Position hinzufügen</button></div>
+    <div class="summen" id="summen" aria-live="polite"></div>
+  </section>
+
+  <section class="card release">
+    <div class="row">
+      <button class="btn primary" id="xmlSpeichern" type="button">XRechnung speichern (XML)</button>
+      <button class="btn" id="drucken" type="button" disabled>Druckansicht / PDF</button>
+      <button class="btn ghost" id="neu" type="button">Neue Rechnung</button>
+    </div>
+    <p class="status" id="stat" role="status"></p>
+    <ul class="fehlerliste" id="fehler"></ul>
+  </section>
+
+  <section class="card" id="ansicht" hidden>
+    <h2>Lesbare Ansicht</h2>
+    <div id="blatt"></div>
+    <details><summary>XML ansehen</summary><pre class="out" id="xmlOut"></pre></details>
+  </section>
+</main>
+<div class="foot">Prüfe jede neue Art von Rechnung vor dem ersten Versand mit einem Validator. Die Rechnungsnummer darf nur einmal vergeben werden; bewahre die XML-Datei unverändert auf. Keine Steuerberatung.</div>
+
+<script src="shell.js"></script>
+<script type="module" src="erechnung-ui.js"></script>
+</body>
+</html>

@@ -47,7 +47,7 @@ def main():
         # Erwartungswerte für den Geldmodus unabhängig in Python erzeugen, dann in JS prüfen
         subprocess.run([sys.executable, str(ROOT / "tools" / "make_geldfaelle.py")], check=True)
         print("\nNode-Tests (Engine B, Geldmodus):")
-        r2 = subprocess.run([node, "--test", "tests/engine_b.test.mjs", "tests/geldmodus.test.mjs", "tests/extractor.test.mjs", "tests/agent.test.mjs"], cwd=ROOT)
+        r2 = subprocess.run([node, "--test", "tests/engine_b.test.mjs", "tests/geldmodus.test.mjs", "tests/extractor.test.mjs", "tests/agent.test.mjs", "tests/erechnung.test.mjs"], cwd=ROOT)
     else:
         print("\nNode nicht gefunden: Node-Tests übersprungen.")
     print("\nEinzeldateien für Kunden bauen (dist/):")
